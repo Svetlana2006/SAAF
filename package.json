@@ -1,0 +1,19 @@
+{
+  "name": "saaf",
+  "version": "0.0.1",
+  "private": true,
+  "description": "SAAF — Spot · Assess · Act · Follow-up. Urban sanitation coordination and impact platform.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=apps/citizen-portal",
+    "build": "npm run build --workspace=apps/citizen-portal",
+    "lint": "npm run lint --workspace=apps/citizen-portal"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}
