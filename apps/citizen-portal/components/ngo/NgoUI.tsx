@@ -1,0 +1,8 @@
+import styles from "./NgoUI.module.css";
+
+export function Breadcrumb({ children }: { children: string }) { return <div className={styles.breadcrumb}><span>SAAF NGO HUB</span><b>›</b><span>Operations</span><b>›</b><strong>{children}</strong></div>; }
+export function PageHeader({ title, description, actions, eyebrow }: { title: string; description: string; actions?: React.ReactNode; eyebrow: string }) { return <><Breadcrumb>{eyebrow}</Breadcrumb><header className={styles.pageHeader}><div><h1>{title}</h1><p>{description}</p></div>{actions&&<div className={styles.actions}>{actions}</div>}</header></>; }
+export function Metric({ label, value, detail, tone="green", icon="▣" }: { label:string; value:string; detail:string; tone?:"green"|"blue"|"red"|"mint"; icon?:string }) { return <article className={`${styles.metric} ${styles[tone]}`}><div><small>{label}</small><span>{icon}</span></div><strong>{value}</strong><p>{detail}</p></article>; }
+export function Button({ children, variant="primary", onClick, type="button" }: { children:React.ReactNode; variant?:"primary"|"soft"|"plain"|"danger"; onClick?:()=>void; type?:"button"|"submit" }) { return <button type={type} onClick={onClick} className={`${styles.button} ${styles[variant]}`}>{children}</button>; }
+export function Panel({ children, className="" }: { children:React.ReactNode; className?:string }) { return <section className={`${styles.panel} ${className}`}>{children}</section>; }
+export function Tag({ children, tone="green" }: { children:React.ReactNode; tone?:"green"|"red"|"blue"|"yellow"|"gray" }) { return <span className={`${styles.tag} ${styles[`tag_${tone}`]}`}>{children}</span>; }
