@@ -1,0 +1,271 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ── Citizen ──────────────────────────────────────────────────────────────────
+model Citizen {
+  citizenId   String   @id @default(cuid()) @map("citizen_id")
+  name        String
+  email       String   @unique
+  phone       String?
+  role        String   // citizen/volunteer/RWA
+  location    String?
+  isAnonymous Boolean  @default(false) @map("is_anonymous")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  reports               Report[]
+  citizenConfirmations  CitizenConfirmation[]
+
+  @@map("citizens")
+}
+
+// ── Report ───────────────────────────────────────────────────────────────────
+model Report {
+  reportId    String   @id @default(cuid()) @map("report_id")
+  citizenId   String?  @map("citizen_id")
+  locationId  String?  @map("location_id")
+  category    String
+  description String
+  photoUrl    String?  @map("photo_url")
+  severity    String
+  status      String   // open/assigned/completed
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  citizen  Citizen?  @relation(fields: [citizenId], references: [citizenId])
+  location Location? @relation(fields: [locationId], references: [locationId])
+
+  citizenConfirmations CitizenConfirmation[]
+
+  @@map("reports")
+}
+
+// ── Location ─────────────────────────────────────────────────────────────────
+model Location {
+  locationId String   @id @default(cuid()) @map("location_id")
+  nameArea   String   @map("name_area")
+  address    String
+  latitude   Float
+  longitude  Float
+  wardZone   String   @map("ward_zone")
+  areaType   String   @map("area_type") // slum/residential/corporate
+  isHotspot  Boolean  @default(false) @map("is_hotspot")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  reports  Report[]
+  missions Mission[]
+  hotspots Hotspot[]
+
+  @@map("locations")
+}
+
+// ── NGO ──────────────────────────────────────────────────────────────────────
+model Ngo {
+  ngoId          String   @id @default(cuid()) @map("ngo_id")
+  name           String
+  contactPerson  String?  @map("contact_person")
+  email          String   @unique
+  phone          String?
+  expertiseAreas String[] @map("expertise_areas")
+  address        String?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  missions Mission[]
+  fundings Funding[]
+
+  @@map("ngos")
+}
+
+// ── Volunteer ────────────────────────────────────────────────────────────────
+model Volunteer {
+  volunteerId  String   @id @default(cuid()) @map("volunteer_id")
+  name         String
+  email        String   @unique
+  phone        String?
+  skills       String[]
+  availability String?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  missionVolunteers MissionVolunteer[]
+
+  @@map("volunteers")
+}
+
+// ── Mission ──────────────────────────────────────────────────────────────────
+model Mission {
+  missionId     String    @id @default(cuid()) @map("mission_id")
+  locationId    String    @map("location_id")
+  ngoId         String    @map("ngo_id")
+  leadNgo       String    @map("lead_ngo")  // legacy text fallback
+  missionType   String    @map("mission_type") // cleanup/awareness/etc.
+  priority      String    // high/moderate/low
+  status        String    // planned/in_progress/completed
+  assignedTo    String    @map("assigned_to") // team/volunteer
+  scheduledDate DateTime  @map("scheduled_date")
+  estimatedCost Float?    @map("estimated_cost")
+  actualCost    Float?    @map("actual_cost")
+  totalSlots    Int       @default(20) @map("total_slots")
+  filledSlots   Int       @default(0) @map("filled_slots")
+  isActive      Boolean   @default(true) @map("is_active")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  location Location @relation(fields: [locationId], references: [locationId])
+  ngo      Ngo      @relation(fields: [ngoId], references: [ngoId])
+
+  missionVolunteers MissionVolunteer[]
+  missionActivities MissionActivity[]
+  evidences         Evidence[]
+  fundings          Funding[]
+  impactReports     ImpactReport[]
+
+  @@map("missions")
+}
+
+// ── Mission_Volunteer ────────────────────────────────────────────────────────
+model MissionVolunteer {
+  missionVolunteerId String   @id @default(cuid()) @map("mission_volunteer_id")
+  missionId          String   @map("mission_id")
+  volunteerId        String   @map("volunteer_id")
+  role               String
+  hoursContributed   Float?   @map("hours_contributed")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  mission   Mission   @relation(fields: [missionId], references: [missionId])
+  volunteer Volunteer @relation(fields: [volunteerId], references: [volunteerId])
+
+  @@map("mission_volunteers")
+}
+
+// ── Citizen_Confirmation ─────────────────────────────────────────────────────
+model CitizenConfirmation {
+  confirmationId String   @id @default(cuid()) @map("confirmation_id")
+  reportId       String   @map("report_id")
+  citizenId      String   @map("citizen_id")
+  status         String   // clean/partial/unresolved
+  photoUrl       String?  @map("photo_url")
+  comment        String?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  report  Report  @relation(fields: [reportId], references: [reportId])
+  citizen Citizen @relation(fields: [citizenId], references: [citizenId])
+
+  @@map("citizen_confirmations")
+}
+
+// ── Hotspot ──────────────────────────────────────────────────────────────────
+model Hotspot {
+  hotspotId       String    @id @default(cuid()) @map("hotspot_id")
+  locationId      String    @map("location_id")
+  recurrenceCount Int       @default(0) @map("recurrence_count")
+  lastCleanedDate DateTime? @map("last_cleaned_date")
+  status          String    // active/resolved
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  location Location @relation(fields: [locationId], references: [locationId])
+
+  rootCauses    RootCause[]
+  interventions Intervention[]
+
+  @@map("hotspots")
+}
+
+// ── Root_Cause ───────────────────────────────────────────────────────────────
+model RootCause {
+  rootCauseId             String   @id @default(cuid()) @map("root_cause_id")
+  hotspotId               String   @map("hotspot_id")
+  causeType               String   @map("cause_type") // dumping/drainage/etc.
+  description             String
+  recommendedIntervention String?  @map("recommended_intervention")
+  createdAt               DateTime @default(now()) @map("created_at")
+
+  hotspot Hotspot @relation(fields: [hotspotId], references: [hotspotId])
+
+  @@map("root_causes")
+}
+
+// ── Intervention ─────────────────────────────────────────────────────────────
+model Intervention {
+  interventionId String   @id @default(cuid()) @map("intervention_id")
+  hotspotId      String   @map("hotspot_id")
+  type           String   // infrastructure/awareness/etc.
+  description    String
+  status         String   // planned/in_progress/completed
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  hotspot Hotspot @relation(fields: [hotspotId], references: [hotspotId])
+
+  @@map("interventions")
+}
+
+// ── Funding ──────────────────────────────────────────────────────────────────
+model Funding {
+  fundingId         String   @id @default(cuid()) @map("funding_id")
+  missionId         String   @map("mission_id")
+  ngoId             String   @map("ngo_id")
+  amount            Float
+  fundingSource     String   @map("funding_source") // CSR/donor/etc.
+  receivedDate      DateTime @map("received_date")
+  utilizationStatus String   @map("utilization_status")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  mission Mission @relation(fields: [missionId], references: [missionId])
+  ngo     Ngo     @relation(fields: [ngoId], references: [ngoId])
+
+  @@map("fundings")
+}
+
+// ── Impact_Report ────────────────────────────────────────────────────────────
+model ImpactReport {
+  impactId                  String   @id @default(cuid()) @map("impact_id")
+  missionId                 String   @map("mission_id")
+  totalCleanedLocations     Int      @map("total_cleaned_locations")
+  totalWasteRemoved         Float    @map("total_waste_removed")
+  volunteerHours            Float    @map("volunteer_hours")
+  recurringHotspotsResolved Int      @map("recurring_hotspots_resolved")
+  environmentalBenefits     String?  @map("environmental_benefits")
+  status                    String
+  createdAt                 DateTime @default(now()) @map("created_at")
+
+  mission Mission @relation(fields: [missionId], references: [missionId])
+
+  @@map("impact_reports")
+}
+
+// ── Evidence ─────────────────────────────────────────────────────────────────
+model Evidence {
+  evidenceId   String   @id @default(cuid()) @map("evidence_id")
+  missionId    String   @map("mission_id")
+  type         String   // before/after/video
+  photoUrl     String   @map("photo_url")
+  timestamp    DateTime @default(now())
+  locationLat  Float?   @map("location_lat")
+  locationLong Float?   @map("location_long")
+  verified     Boolean  @default(false)
+  verifiedBy   String?  @map("verified_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  mission Mission @relation(fields: [missionId], references: [missionId])
+
+  @@map("evidences")
+}
+
+// ── Mission_Activity ─────────────────────────────────────────────────────────
+model MissionActivity {
+  activityId   String    @id @default(cuid()) @map("activity_id")
+  missionId    String    @map("mission_id")
+  activityType String    @map("activity_type") // cleanup/awareness/etc.
+  description  String
+  startTime    DateTime? @map("start_time")
+  endTime      DateTime? @map("end_time")
+  status       String
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  mission Mission @relation(fields: [missionId], references: [missionId])
+
+  @@map("mission_activities")
+}

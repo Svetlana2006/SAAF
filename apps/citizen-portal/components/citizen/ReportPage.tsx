@@ -1,32 +1,380 @@
 "use client";
 import { ChangeEvent, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { Eyebrow, Icon, PortalFooter, PortalHeader } from "./PortalShell";
 import styles from "./ReportPage.module.css";
 
-type ReportPhoto={id:string;file:File;src:string};
+const MapPicker = dynamic(() => import("./MapPicker"), {
+  ssr: false,
+  loading: () => (
+    <div style={{ height: "200px", background: "#111", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center", color: "#666", fontSize: "12px" }}>
+      Loading map...
+    </div>
+  ),
+});
 
-const categories=["Overflowing Garbage Dump","C&D Debris (Construction)","Choked Storm Drain","Hazardous / Bio-Medical","Open Sewage Leak","Public Toilet Disrepair"];
+type ReportPhoto = { id: string; file: File; src: string };
 
-export default function ReportPage(){
-  const [category,setCategory]=useState(categories[0]);const [severity,setSeverity]=useState("Urgent / Obstruction");const [note,setNote]=useState("");const [success,setSuccess]=useState(false);const [photos,setPhotos]=useState<(ReportPhoto|null)[]>([null,null,null]);const [photoError,setPhotoError]=useState("");const uploadedCount=photos.filter(Boolean).length;
-  function toPhoto(file:File):ReportPhoto{return {id:crypto.randomUUID(),file,src:URL.createObjectURL(file)};}
-  function pickSlotPhoto(event:ChangeEvent<HTMLInputElement>,index:number){const file=event.currentTarget.files?.[0];event.currentTarget.value="";if(!file)return;if(!file.type.startsWith("image/")){setPhotoError("Only image files can be added as issue evidence.");return;}const photo=toPhoto(file);if(photos[index])URL.revokeObjectURL(photos[index]!.src);setPhotos(current=>{const next=[...current];next[index]=photo;return next;});setPhotoError("");setSuccess(false);}
-  function pickPhotos(event:ChangeEvent<HTMLInputElement>){const selected=Array.from(event.currentTarget.files??[]);event.currentTarget.value="";const valid=selected.filter(file=>file.type.startsWith("image/"));if(valid.length!==selected.length)setPhotoError("Only image files can be added as issue evidence.");else setPhotoError("");if(!valid.length)return;const additions=valid.map(toPhoto);setPhotos(current=>{const next=[...current];for(const photo of additions){const openSlot=next.slice(0,3).findIndex(item=>item===null);const index=openSlot===-1?next.length:openSlot;next[index]=photo;}return next;});setSuccess(false);}
-  function removePhoto(index:number){const photo=photos[index];if(photo)URL.revokeObjectURL(photo.src);setPhotos(current=>{if(index<3){const next=[...current];next[index]=null;return next;}return current.filter((_,photoIndex)=>photoIndex!==index);});setSuccess(false);}  return <div className={styles.page}><PortalHeader compact active="My Reports"/><main className={styles.main}>
-    <div className={styles.breadcrumb}><Link href="/portal">⌂ Portal</Link><span>/</span><Link href="/portal">Citizen Action Console</Link><span>/</span><b>Report Issue</b><span className={styles.sla}>● Municipal Dispatch Ready · Central Zone SLA: <strong>≤ 6 Mins</strong></span></div>
-    <section className={styles.title}><div><span className={styles.audit}>♧ SAAF GROUND AUDIT PROTOCOL 2.4</span><h1>Spot &amp; Report Civic Sanitation Issue</h1><p>Submit verified ground evidence to trigger high-priority municipal dispatch and notify accredited neighborhood clean-up taskforces.</p></div><div className={styles.ticket}><Icon>▣</Icon><span><small>ASSIGNED REFERENCE</small><b>ND-2025-W84-9042</b></span></div></section>
-    <section className={styles.stepper}><div className={styles.step}><b>{uploadedCount>=3?"✓":"1"}</b><span><small>STEP 01</small><strong>Multi-Angle Capture</strong><small>{uploadedCount} of 3 angle slots filled</small></span></div><i/><div className={`${styles.step} ${styles.current}`}><b>2</b><span><small>STEP 02</small><strong>Geotag &amp; Ward</strong><small>Ward 84 · GPS Fixed</small></span></div><i/><div className={styles.step}><b>3</b><span><small>STEP 03</small><strong>Issue Details</strong><small>Category &amp; Access Notes</small></span></div><i/><div className={styles.step}><b>4</b><span><small>STEP 04</small><strong>AI Authenticity &amp; Dispatch</strong><small>Tamper Guard &amp; Confirmation</small></span></div></section>
-    <div className={styles.columns}><div className={styles.left}>
-      <section className={styles.panel}><div className={styles.panelHeading}><Icon>▣</Icon><div><b>Multi-Angle Photo Evidence</b><small>Upload a photo into each angle slot. Each selected image replaces its placeholder; add extra images after filling the first three.</small></div><label className={styles.upload}>＋ Add photos<input type="file" accept="image/*" multiple onChange={pickPhotos} aria-label="Upload three or more issue photos from different angles"/></label></div><div className={styles.angleGuidance}><b>{uploadedCount} of 3 angle slots filled</b><span className={uploadedCount>=3?styles.ready:""}>{uploadedCount>=3?"Minimum met":"Fill each photo slot to continue"}</span><div><small>01　Context</small><small>02　Materials</small><small>03　Detail</small></div></div>{photoError&&<p className={styles.photoError} role="alert">{photoError}</p>}<div className={styles.evidenceGrid}>{Array.from({length:Math.max(3,photos.length)},(_,i)=>{const photo=photos[i];const angle=["Context","Materials","Detail"][i]??`Angle ${i+1}`;return <article className={`${styles.uploadedPhoto} ${photo?styles.hasPhoto:styles.emptySlot}`} key={photo?.id??`empty-angle-${i}`}>
-{photo?<><div className={styles.imageWrap}><img src={photo.src} alt={`Issue evidence, angle ${i+1}: ${photo.file.name}`}/><small>ANGLE {String(i+1).padStart(2,"0")} · {angle.toUpperCase()}</small><span>✓</span><label className={styles.replaceImage}>↻ Replace<input type="file" accept="image/*" onChange={event=>pickSlotPhoto(event,i)} aria-label={`Replace angle ${i+1} photo`}/></label></div><b title={photo.file.name}>{angle}</b><div className={styles.photoCardFooter}><small>{photo.file.name}</small><button type="button" onClick={()=>removePhoto(i)} aria-label={`Remove angle ${i+1} photo`}>Remove</button></div></>:<label className={styles.emptyPhoto}><span>＋</span><b>Upload photo</b><small>Angle {String(i+1).padStart(2,"0")} · {angle} view</small><input type="file" accept="image/*" onChange={event=>pickSlotPhoto(event,i)} aria-label={`Upload angle ${i+1}, ${angle} view`}/></label>}</article>})}</div><div className={styles.aiNote}>♧ AI Multiple perspectives alleviate the automated triage engine to measure debris depth and approximate tonnage before deployment.</div></section>
-      <section className={styles.panel}><div className={styles.sectionHeading}><Icon>▤</Icon><b>Issue Classification &amp; Severity</b><small>Identify the primary sanitation violation to dispatch the appropriate municipal machinery (suction jetter, tipper, or compact compactor).</small></div><div className={styles.categories}>{categories.map((item,i)=><button type="button" key={item} onClick={()=>setCategory(item)} className={`${styles.category} ${category===item?styles.selected:""}`}><b>{["▧","⚒","⌂","△","♧","▣"][i]}　{item}</b><small>{["Organic bins, scattered solid municipal waste to sidewalk edge.","Bricks, rubble, abandoned plaster & construction debris.","Blocked drain culverts, monsoon overflow & silt stagnation.","Medical, clinical containers, hazardous materials.","Blackwater pipeline breach, septic backup & sewer seepage.","Unhygienic public toilet, broken facilities & fixtures."][i]}</small></button>)}</div><div className={styles.severity}><b>Severity &amp; Traffic Impact</b><span>Affects pedestrian walkway &amp; road shoulder</span><div>{["Routine Cleanup","Elevated Priority","Urgent / Obstruction","Hazardous Spill"].map(item=><button key={item} type="button" onClick={()=>setSeverity(item)} className={severity===item?styles.severityActive:""}>{item}</button>)}</div></div><label className={styles.noteLabel}>Ground Access Notes &amp; Specific Landmarks <small>{note.length}/500 characters</small><textarea maxLength={500} value={note} onChange={e=>setNote(e.target.value)} placeholder="The community bin at the junction has spilled over onto the pedestrian walkway and is blocking the stormwater gully. Mention any access constraints for the municipal tipper truck."/></label><small className={styles.hint}>ⓘ Specify exact landmarks (underpass, metro entry) to assist municipal crews.</small></section>
-      <section className={styles.reporter}><span>AS</span><div><b>Aarav Sharma <small>Tier 2 · Civic Auditor</small></b><small>+91 98110-XXXXX · Ward 84 Registered Resident</small><p>Your credentials remain visible to verified Municipal Zone Officers &amp; NGO Dispatch for SLA compliance tracking while safeguarding your public anonymity.</p></div><label><input type="checkbox"/> Anonymous on Public Feed</label></section>
-    </div><aside className={styles.right}>
-      <section className={styles.aiCard}><header><Icon>✳</Icon><div><b>SAAF AI DEFENSE ENGINE</b><small>100% GENUINE</small></div></header><h2>Zero Tamper Verified</h2><p>Real-time deepfake &amp; duplicate detection passed via cryptographic verification protocol.</p>{[["Synthetic Image Classifier","0.03% AI Generation Likelihood (Safe)"],["Sensor Noise & Focal Depth","Hardware Bayes matrix matches Phone 14 Pro"],["Solar Azimuth Corroboration","Observed angle 31.2° aligns with sun position"],["Anti-Recycling Deduplication","Perceptual hash collision 0.14% in Ward 84"]].map(([t,d])=><div className={styles.check} key={t}><b>✓</b><span><strong>{t}</strong><small>{d}</small></span></div>)}<div className={styles.load}><span><small>ESTIMATED LOAD</small><b>1.8 – 2.4 Metric Tons</b></span><span><small>Response Mode</small><b>Requires Mini-Tipper</b></span></div></section>
-      <section className={styles.location}><header><Icon>⌖</Icon><b>Geotag &amp; Ward</b><span>GPS LOCKED</span></header><div className={styles.miniMap}><span>●</span><small>28.668° N, 77.231° E · ±2.4m</small></div><h3>DESIGNATED WARD JURISDICTION</h3><b>Ward 84 · Civil Lines &amp; Kashmere Gate</b><p>Central Delhi Municipal Zone · SLA Lead: Er. Rajesh Mathur</p><label>Street Address / Landmark<input defaultValue="Near Sluice Gate #84-B, Ring Road Underpass, Civil Lines"/></label><button type="button" className={styles.adjust}>⌖　Adjust Pin Coordinates</button></section>
-      <section className={styles.submitCard}><div className={styles.slaNote}>♧ <span><b>Guaranteed Response SLA</b><small>Accredited NGO taskforce or MCD sanitation tipper assigned within 95 minutes of digital signature verification.</small></span></div><small className={styles.uploadRequirement}>{uploadedCount<3?"Fill all 3 angle slots before submitting.":"Photo requirement met · "+uploadedCount+" images ready"}</small><button type="button" className={styles.submit} disabled={uploadedCount<3} onClick={()=>setSuccess(true)}>{success?"✓ Report Submitted · #MCD-8409":"Submit Verified Report　➤"}</button><button type="button" className={styles.draft} onClick={()=>setSuccess(false)}>♙　Save Encrypted Draft</button><small>★ Critical Spill or Acute danger? Hotline: <a href="tel:18002447233">1800-244-SAAF</a></small></section>
-    </aside></div>
-    <section className={styles.transparency}><div>◉ <span><b>Real-Time Open Data Transparency</b><small>Once submitted, this report’s pipeline timeline will be transparent to citizens via satellite &amp; geotag audits.</small></span></div><b>94.8%<small>Ward 84 SLA Cleared</small></b><b>32m<small>Avg Heat Dispatch</small></b></section>
-  </main><PortalFooter compact/></div>;
+const categories = [
+  "Overflowing Garbage Dump",
+  "C&D Debris (Construction)",
+  "Choked Storm Drain",
+  "Hazardous / Bio-Medical",
+  "Open Sewage Leak",
+  "Public Toilet Disrepair",
+];
+
+type SubmitState =
+  | { type: "idle" }
+  | { type: "submitting" }
+  | { type: "success"; referenceId: string; locationArea: string; wardZone: string }
+  | { type: "error"; message: string };
+
+export default function ReportPage() {
+  const [category, setCategory] = useState(categories[0]);
+  const [severity, setSeverity] = useState("Urgent / Obstruction");
+  const [note, setNote] = useState("");
+  const [isAnonymous, setIsAnonymous] = useState(false);
+  const [photos, setPhotos] = useState<(ReportPhoto | null)[]>([null, null, null]);
+  const [photoError, setPhotoError] = useState("");
+  const [submitState, setSubmitState] = useState<SubmitState>({ type: "idle" });
+  const [lat, setLat] = useState(28.668);
+  const [lng, setLng] = useState(77.231);
+  const [address, setAddress] = useState("");
+
+  const uploadedCount = photos.filter(Boolean).length;
+
+  function toPhoto(file: File): ReportPhoto {
+    return { id: crypto.randomUUID(), file, src: URL.createObjectURL(file) };
+  }
+
+  function pickSlotPhoto(event: ChangeEvent<HTMLInputElement>, index: number) {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setPhotoError("Only image files can be added as issue evidence.");
+      return;
+    }
+    const photo = toPhoto(file);
+    if (photos[index]) URL.revokeObjectURL(photos[index]!.src);
+    setPhotos((current) => {
+      const next = [...current];
+      next[index] = photo;
+      return next;
+    });
+    setPhotoError("");
+    setSubmitState({ type: "idle" });
+  }
+
+  function pickPhotos(event: ChangeEvent<HTMLInputElement>) {
+    const selected = Array.from(event.currentTarget.files ?? []);
+    event.currentTarget.value = "";
+    const valid = selected.filter((file) => file.type.startsWith("image/"));
+    if (valid.length !== selected.length)
+      setPhotoError("Only image files can be added as issue evidence.");
+    else setPhotoError("");
+    if (!valid.length) return;
+    const additions = valid.map(toPhoto);
+    setPhotos((current) => {
+      const next = [...current];
+      for (const photo of additions) {
+        const openSlot = next.slice(0, 3).findIndex((item) => item === null);
+        const index = openSlot === -1 ? next.length : openSlot;
+        next[index] = photo;
+      }
+      return next;
+    });
+    setSubmitState({ type: "idle" });
+  }
+
+  function removePhoto(index: number) {
+    const photo = photos[index];
+    if (photo) URL.revokeObjectURL(photo.src);
+    setPhotos((current) => {
+      if (index < 3) {
+        const next = [...current];
+        next[index] = null;
+        return next;
+      }
+      return current.filter((_, photoIndex) => photoIndex !== index);
+    });
+    setSubmitState({ type: "idle" });
+  }
+
+  async function handleSubmit() {
+    if (uploadedCount < 3) return;
+    setSubmitState({ type: "submitting" });
+
+    try {
+      // Build FormData for multipart upload
+      const formData = new FormData();
+      const validPhotos = photos.filter(Boolean) as ReportPhoto[];
+      for (const p of validPhotos) formData.append("photos", p.file);
+      formData.append("category", category);
+      formData.append("severity", severity);
+      formData.append("description", note);
+      formData.append("isAnonymous", String(isAnonymous));
+      // Use real geolocation when available, fall back to Ward 84 demo coords
+      formData.append("latitude", lat.toString());
+      formData.append("longitude", lng.toString());
+      formData.append("address", address);
+      formData.append("citizenName", "Aarav Sharma");
+      formData.append("citizenEmail", "aarav.sharma@civicmail.in");
+      formData.append("citizenPhone", "+91 98110-XXXXX");
+
+      const res = await fetch("/api/reports", { method: "POST", body: formData });
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        setSubmitState({ type: "error", message: json.error ?? "Submission failed." });
+        return;
+      }
+
+      setSubmitState({
+        type: "success",
+        referenceId: json.data.reportId,
+        locationArea: json.data.locationArea,
+        wardZone: json.data.wardZone,
+      });
+    } catch (err) {
+      setSubmitState({
+        type: "error",
+        message: "Network error — please try again.",
+      });
+    }
+  }
+
+  const isSubmitting = submitState.type === "submitting";
+  const isSuccess = submitState.type === "success";
+
+  return (
+    <div className={styles.page}>
+      <PortalHeader compact active="My Reports" />
+      <main className={styles.main}>
+        <div className={styles.breadcrumb}>
+          <Link href="/portal">⌂ Portal</Link>
+          <span>/</span>
+          <Link href="/portal">Citizen Action Console</Link>
+          <span>/</span>
+          <b>Report Issue</b>
+          <span className={styles.sla}>● Municipal Dispatch Ready · Central Zone SLA: <strong>≤ 95 Mins</strong></span>
+        </div>
+        <section className={styles.title}>
+          <div>
+            <span className={styles.audit}>♧ SAAF GROUND AUDIT PROTOCOL 2.4</span>
+            <h1>Spot &amp; Report Civic Sanitation Issue</h1>
+            <p>Submit verified ground evidence to trigger high-priority municipal dispatch and notify accredited neighborhood clean-up taskforces.</p>
+          </div>
+          <div className={styles.ticket}>
+            <Icon>▣</Icon>
+            <span>
+              <small>ASSIGNED REFERENCE</small>
+              <b>{isSuccess ? submitState.referenceId : "ND-2025-W84-9042"}</b>
+            </span>
+          </div>
+        </section>
+        <section className={styles.stepper}>
+          <div className={styles.step}><b>{uploadedCount >= 3 ? "✓" : "1"}</b><span><small>STEP 01</small><strong>Multi-Angle Capture</strong><small>{uploadedCount} of 3 angle slots filled</small></span></div>
+          <i />
+          <div className={`${styles.step} ${styles.current}`}><b>2</b><span><small>STEP 02</small><strong>Geotag &amp; Ward</strong><small>Ward 84 · GPS Fixed</small></span></div>
+          <i />
+          <div className={styles.step}><b>3</b><span><small>STEP 03</small><strong>Issue Details</strong><small>Category &amp; Access Notes</small></span></div>
+          <i />
+          <div className={styles.step}><b>4</b><span><small>STEP 04</small><strong>AI Authenticity &amp; Dispatch</strong><small>Tamper Guard &amp; Confirmation</small></span></div>
+        </section>
+        <div className={styles.columns}>
+          <div className={styles.left}>
+            {/* ── Photo Evidence ─────────────────────────────── */}
+            <section className={styles.panel}>
+              <div className={styles.panelHeading}>
+                <Icon>▣</Icon>
+                <div>
+                  <b>Multi-Angle Photo Evidence</b>
+                  <small>Upload a photo into each angle slot. Each selected image replaces its placeholder; add extra images after filling the first three.</small>
+                </div>
+                <label className={styles.upload}>
+                  ＋ Add photos
+                  <input type="file" accept="image/*" multiple onChange={pickPhotos} aria-label="Upload three or more issue photos from different angles" />
+                </label>
+              </div>
+              <div className={styles.angleGuidance}>
+                <b>{uploadedCount} of 3 angle slots filled</b>
+                <span className={uploadedCount >= 3 ? styles.ready : ""}>{uploadedCount >= 3 ? "Minimum met" : "Fill each photo slot to continue"}</span>
+                <div><small>01　Context</small><small>02　Materials</small><small>03　Detail</small></div>
+              </div>
+              {photoError && <p className={styles.photoError} role="alert">{photoError}</p>}
+              <div className={styles.evidenceGrid}>
+                {Array.from({ length: Math.max(3, photos.length) }, (_, i) => {
+                  const photo = photos[i];
+                  const angle = ["Context", "Materials", "Detail"][i] ?? `Angle ${i + 1}`;
+                  return (
+                    <article className={`${styles.uploadedPhoto} ${photo ? styles.hasPhoto : styles.emptySlot}`} key={photo?.id ?? `empty-angle-${i}`}>
+                      {photo ? (
+                        <>
+                          <div className={styles.imageWrap}>
+                            <img src={photo.src} alt={`Issue evidence, angle ${i + 1}: ${photo.file.name}`} />
+                            <small>ANGLE {String(i + 1).padStart(2, "0")} · {angle.toUpperCase()}</small>
+                            <span>✓</span>
+                            <label className={styles.replaceImage}>
+                              ↻ Replace
+                              <input type="file" accept="image/*" onChange={(event) => pickSlotPhoto(event, i)} aria-label={`Replace angle ${i + 1} photo`} />
+                            </label>
+                          </div>
+                          <b title={photo.file.name}>{angle}</b>
+                          <div className={styles.photoCardFooter}>
+                            <small>{photo.file.name}</small>
+                            <button type="button" onClick={() => removePhoto(i)} aria-label={`Remove angle ${i + 1} photo`}>Remove</button>
+                          </div>
+                        </>
+                      ) : (
+                        <label className={styles.emptyPhoto}>
+                          <span>＋</span>
+                          <b>Upload photo</b>
+                          <small>Angle {String(i + 1).padStart(2, "0")} · {angle} view</small>
+                          <input type="file" accept="image/*" onChange={(event) => pickSlotPhoto(event, i)} aria-label={`Upload angle ${i + 1}, ${angle} view`} />
+                        </label>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+              <div className={styles.aiNote}>♧ AI Multiple perspectives alleviate the automated triage engine to measure debris depth and approximate tonnage before deployment.</div>
+            </section>
+
+            {/* ── Category & Notes ───────────────────────────── */}
+            <section className={styles.panel}>
+              <div className={styles.sectionHeading}>
+                <Icon>▤</Icon>
+                <b>Issue Classification &amp; Severity</b>
+                <small>Identify the primary sanitation violation to dispatch the appropriate municipal machinery (suction jetter, tipper, or compact compactor).</small>
+              </div>
+              <div className={styles.categories}>
+                {categories.map((item, i) => (
+                  <button type="button" key={item} onClick={() => setCategory(item)} className={`${styles.category} ${category === item ? styles.selected : ""}`}>
+                    <b>{["▧", "⚒", "⌂", "△", "♧", "▣"][i]}　{item}</b>
+                    <small>{["Organic bins, scattered solid municipal waste to sidewalk edge.", "Bricks, rubble, abandoned plaster & construction debris.", "Blocked drain culverts, monsoon overflow & silt stagnation.", "Medical, clinical containers, hazardous materials.", "Blackwater pipeline breach, septic backup & sewer seepage.", "Unhygienic public toilet, broken facilities & fixtures."][i]}</small>
+                  </button>
+                ))}
+              </div>
+              <div className={styles.severity}>
+                <b>Severity &amp; Traffic Impact</b>
+                <span>Affects pedestrian walkway &amp; road shoulder</span>
+                <div>
+                  {["Routine Cleanup", "Elevated Priority", "Urgent / Obstruction", "Hazardous Spill"].map((item) => (
+                    <button key={item} type="button" onClick={() => setSeverity(item)} className={severity === item ? styles.severityActive : ""}>{item}</button>
+                  ))}
+                </div>
+              </div>
+              <label className={styles.noteLabel}>
+                Ground Access Notes &amp; Specific Landmarks <small>{note.length}/500 characters</small>
+                <textarea maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} placeholder="The community bin at the junction has spilled over onto the pedestrian walkway and is blocking the stormwater gully. Mention any access constraints for the municipal tipper truck." />
+              </label>
+              <small className={styles.hint}>ⓘ Specify exact landmarks (underpass, metro entry) to assist municipal crews.</small>
+            </section>
+
+            {/* ── Reporter ───────────────────────────────────── */}
+            <section className={styles.reporter}>
+              <span>AS</span>
+              <div>
+                <b>Aarav Sharma <small>Tier 2 · Civic Auditor</small></b>
+                <small>+91 98110-XXXXX · Ward 84 Registered Resident</small>
+                <p>Your credentials remain visible to verified Municipal Zone Officers &amp; NGO Dispatch for SLA compliance tracking while safeguarding your public anonymity.</p>
+              </div>
+              <label>
+                <input type="checkbox" checked={isAnonymous} onChange={(e) => setIsAnonymous(e.target.checked)} />
+                Anonymous on Public Feed
+              </label>
+            </section>
+          </div>
+
+          <aside className={styles.right}>
+            {/* ── AI Defense Engine ──────────────────────────── */}
+            <section className={styles.aiCard}>
+              <header>
+                <Icon>✳</Icon>
+                <div><b>SAAF AI DEFENSE ENGINE</b><small>100% GENUINE</small></div>
+              </header>
+              <h2>Zero Tamper Verified</h2>
+              <p>Real-time deepfake &amp; duplicate detection passed via cryptographic verification protocol.</p>
+              {[
+                ["Synthetic Image Classifier", "0.03% AI Generation Likelihood (Safe)"],
+                ["Sensor Noise & Focal Depth", "Hardware Bayes matrix matches Phone 14 Pro"],
+                ["Solar Azimuth Corroboration", "Observed angle 31.2° aligns with sun position"],
+                ["Anti-Recycling Deduplication", "Perceptual hash collision 0.14% in Ward 84"],
+              ].map(([t, d]) => (
+                <div className={styles.check} key={t}><b>✓</b><span><strong>{t}</strong><small>{d}</small></span></div>
+              ))}
+              <div className={styles.load}>
+                <span><small>ESTIMATED LOAD</small><b>1.8 – 2.4 Metric Tons</b></span>
+                <span><small>Response Mode</small><b>Requires Mini-Tipper</b></span>
+              </div>
+            </section>
+
+            {/* ── Location ───────────────────────────────────── */}
+            <section className={styles.location}>
+              <header><Icon>⌖</Icon><b>Geotag &amp; Ward</b><span>GPS LOCKED</span></header>
+              <MapPicker
+                lat={lat}
+                lng={lng}
+                address={address}
+                onMove={(newLat, newLng) => { setLat(newLat); setLng(newLng); }}
+                onAddressChange={setAddress}
+                apiKey={process.env.NEXT_PUBLIC_MAPTILER_KEY ?? ""}
+              />
+            </section>
+
+            {/* ── Submit Card ────────────────────────────────── */}
+            <section className={styles.submitCard}>
+              <div className={styles.slaNote}>
+                ♧ <span><b>Guaranteed Response SLA</b><small>Accredited NGO taskforce or MCD sanitation tipper assigned within 95 minutes of digital signature verification.</small></span>
+              </div>
+              <small className={styles.uploadRequirement}>
+                {uploadedCount < 3 ? "Fill all 3 angle slots before submitting." : "Photo requirement met · " + uploadedCount + " images ready"}
+              </small>
+
+              {/* Error state */}
+              {submitState.type === "error" && (
+                <p className={styles.photoError} role="alert" style={{ marginBottom: "0.75rem" }}>
+                  ⚠ {submitState.message}
+                </p>
+              )}
+
+              {/* Success state */}
+              {isSuccess && (
+                <div style={{ marginBottom: "0.75rem", padding: "0.75rem", background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.35)", borderRadius: "8px", fontSize: "0.8rem" }}>
+                  <b style={{ color: "#22c55e" }}>✓ Report Submitted · {submitState.referenceId}</b>
+                  <br /><small>{submitState.locationArea}{submitState.wardZone ? ` · ${submitState.wardZone}` : ""}</small>
+                </div>
+              )}
+
+              <button
+                type="button"
+                className={styles.submit}
+                disabled={uploadedCount < 3 || isSubmitting}
+                onClick={handleSubmit}
+              >
+                {isSubmitting
+                  ? "⏳ Uploading & Submitting…"
+                  : isSuccess
+                  ? `✓ Submitted · #${submitState.referenceId}`
+                  : "Submit Verified Report　➤"}
+              </button>
+              <button type="button" className={styles.draft} onClick={() => setSubmitState({ type: "idle" })}>
+                ♙　Save Encrypted Draft
+              </button>
+              <small>★ Critical Spill or Acute danger? Hotline: <a href="tel:18002447233">1800-244-SAAF</a></small>
+            </section>
+          </aside>
+        </div>
+        <section className={styles.transparency}>
+          <div>◉ <span><b>Real-Time Open Data Transparency</b><small>Once submitted, this report's pipeline timeline will be transparent to citizens via satellite &amp; geotag audits.</small></span></div>
+          <b>94.8%<small>Ward 84 SLA Cleared</small></b>
+          <b>32m<small>Avg Heat Dispatch</small></b>
+        </section>
+      </main>
+      <PortalFooter compact />
+    </div>
+  );
 }
