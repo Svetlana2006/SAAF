@@ -41,6 +41,8 @@ model Report {
   location Location? @relation(fields: [locationId], references: [locationId])
 
   citizenConfirmations CitizenConfirmation[]
+  ngoOffers           NgoReportOffer[]
+  missions            Mission[]
 
   @@map("reports")
 }
@@ -77,6 +79,9 @@ model Ngo {
 
   missions Mission[]
   fundings Funding[]
+  memberships NgoMembership[]
+  reportOffers NgoReportOffer[]
+  costClaims NgoCostClaim[]
 
   @@map("ngos")
 }
@@ -101,6 +106,7 @@ model Mission {
   missionId     String    @id @default(cuid()) @map("mission_id")
   locationId    String    @map("location_id")
   ngoId         String    @map("ngo_id")
+  reportId      String?   @map("report_id")
   leadNgo       String    @map("lead_ngo")  // legacy text fallback
   missionType   String    @map("mission_type") // cleanup/awareness/etc.
   priority      String    // high/moderate/low
@@ -116,12 +122,15 @@ model Mission {
 
   location Location @relation(fields: [locationId], references: [locationId])
   ngo      Ngo      @relation(fields: [ngoId], references: [ngoId])
+  report   Report?  @relation(fields: [reportId], references: [reportId])
 
   missionVolunteers MissionVolunteer[]
   missionActivities MissionActivity[]
   evidences         Evidence[]
   fundings          Funding[]
   impactReports     ImpactReport[]
+  statusEvents      MissionStatusEvent[]
+  costClaims        NgoCostClaim[]
 
   @@map("missions")
 }
@@ -132,6 +141,7 @@ model MissionVolunteer {
   missionId          String   @map("mission_id")
   volunteerId        String   @map("volunteer_id")
   role               String
+  status             String   @default("registered")
   hoursContributed   Float?   @map("hours_contributed")
   createdAt          DateTime @default(now()) @map("created_at")
 
@@ -242,6 +252,8 @@ model Evidence {
   missionId    String   @map("mission_id")
   type         String   // before/after/video
   photoUrl     String   @map("photo_url")
+  cloudinaryId String?  @map("cloudinary_id")
+  description  String?
   timestamp    DateTime @default(now())
   locationLat  Float?   @map("location_lat")
   locationLong Float?   @map("location_long")
@@ -263,9 +275,93 @@ model MissionActivity {
   startTime    DateTime? @map("start_time")
   endTime      DateTime? @map("end_time")
   status       String
+  progressPercent Int?  @map("progress_percent")
   createdAt    DateTime  @default(now()) @map("created_at")
 
   mission Mission @relation(fields: [missionId], references: [missionId])
 
   @@map("mission_activities")
+}
+
+// NGO portal identity maps a Supabase Auth user to an approved NGO.
+model NgoMembership {
+  membershipId  String   @id @default(cuid()) @map("membership_id")
+  supabaseUserId String   @map("supabase_user_id")
+  ngoId         String   @map("ngo_id")
+  role          String   @default("field_staff") // owner/manager/field_staff
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  ngo          Ngo                 @relation(fields: [ngoId], references: [ngoId])
+  statusEvents MissionStatusEvent[]
+
+  @@unique([supabaseUserId, ngoId])
+  @@index([supabaseUserId, isActive])
+  @@map("ngo_memberships")
+}
+
+model NgoReportOffer {
+  offerId     String   @id @default(cuid()) @map("offer_id")
+  reportId    String   @map("report_id")
+  ngoId       String   @map("ngo_id")
+  status      String   @default("offered") // offered/accepted/declined/closed
+  offeredAt   DateTime @default(now()) @map("offered_at")
+  respondedAt DateTime? @map("responded_at")
+
+  report Report @relation(fields: [reportId], references: [reportId])
+  ngo    Ngo    @relation(fields: [ngoId], references: [ngoId])
+
+  @@unique([reportId, ngoId])
+  @@index([ngoId, status, offeredAt])
+  @@map("ngo_report_offers")
+}
+
+model MissionStatusEvent {
+  eventId      String   @id @default(cuid()) @map("event_id")
+  missionId    String   @map("mission_id")
+  membershipId String?  @map("membership_id")
+  fromStatus   String?  @map("from_status")
+  toStatus     String   @map("to_status")
+  note         String?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  mission    Mission        @relation(fields: [missionId], references: [missionId])
+  membership NgoMembership? @relation(fields: [membershipId], references: [membershipId])
+
+  @@index([missionId, createdAt])
+  @@map("mission_status_events")
+}
+
+model NgoCostClaim {
+  claimId    String   @id @default(cuid()) @map("claim_id")
+  ngoId      String   @map("ngo_id")
+  missionId  String   @map("mission_id")
+  title      String
+  notes      String?
+  amount     Float
+  status     String   @default("submitted") // submitted/under_review/approved/rejected/paid
+  submittedAt DateTime @default(now()) @map("submitted_at")
+  reviewedAt DateTime? @map("reviewed_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  ngo     Ngo                @relation(fields: [ngoId], references: [ngoId])
+  mission Mission            @relation(fields: [missionId], references: [missionId])
+  items   NgoCostClaimItem[]
+
+  @@index([ngoId, status, submittedAt])
+  @@map("ngo_cost_claims")
+}
+
+model NgoCostClaimItem {
+  itemId       String   @id @default(cuid()) @map("item_id")
+  claimId      String   @map("claim_id")
+  description  String
+  amount       Float
+  receiptUrl   String?  @map("receipt_url")
+  cloudinaryId String?  @map("cloudinary_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  claim NgoCostClaim @relation(fields: [claimId], references: [claimId])
+
+  @@map("ngo_cost_claim_items")
 }
