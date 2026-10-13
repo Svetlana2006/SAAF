@@ -108,6 +108,24 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // Route every new open case to the best matching partners. If no expertise
+    // term matches the citizen category, offer it to all registered NGOs so
+    // unusual reports are still visible for manual triage.
+    const ngos = await prisma.ngo.findMany({ select: { ngoId: true, expertiseAreas: true } });
+    const termsByCategory: Record<string, string[]> = {
+      drain: ["desilting", "drainage"],
+      plastic: ["plastic_recovery", "waste_segregation"],
+      garbage: ["waste_segregation", "plastic_recovery"],
+      waste: ["waste_segregation", "plastic_recovery"],
+      rubble: ["rubble_clearance"],
+      awareness: ["awareness_campaigns"],
+    };
+    const categoryKey = body.category.toLowerCase();
+    const matchedTerms = Object.entries(termsByCategory).filter(([term]) => categoryKey.includes(term)).flatMap(([, terms]) => terms);
+    const matchedNgos = ngos.filter(ngo => ngo.expertiseAreas.some(area => matchedTerms.includes(area.toLowerCase())));
+    const recipients = matchedNgos.length ? matchedNgos : ngos;
+    if (recipients.length) await prisma.ngoReportOffer.createMany({ data: recipients.map(ngo => ({ reportId: createdReport.reportId, ngoId: ngo.ngoId })), skipDuplicates: true });
+
     // Re-fetch with relations for the response
     const result = await prisma.report.findFirst({
       where: { reportId: createdReport.reportId },

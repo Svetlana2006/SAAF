@@ -191,6 +191,26 @@ async function main() {
     },
   });
 
+  const ngoOpportunityReport = await prisma.report.upsert({
+    where: { reportId: "rpt-ngo-opportunity-demo" },
+    update: {},
+    create: {
+      reportId: "rpt-ngo-opportunity-demo",
+      citizenId: citizen1.citizenId,
+      locationId: loc42.locationId,
+      category: "Drain desilting and plastic recovery",
+      severity: "High",
+      description: "Demo open report used to exercise the NGO opportunity and mission acceptance workflow.",
+      status: "open",
+    },
+  });
+
+  await prisma.ngoReportOffer.upsert({
+    where: { offerId: "offer-ngo-demo-1" },
+    update: {},
+    create: { offerId: "offer-ngo-demo-1", reportId: ngoOpportunityReport.reportId, ngoId: ngo1.ngoId },
+  });
+
   console.log("✅ Reports seeded");
 
   // ── Missions ──────────────────────────────────────────────────────────────

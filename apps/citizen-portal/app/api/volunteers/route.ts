@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Upsert the Volunteer record, then create MissionVolunteer link
-    const [volunteerRecord, missionVolunteer] = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const { volunteerRecord, missionVolunteer } = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // Find or create the volunteer
       const vol = await tx.volunteer.upsert({
         where: { email: body.email },
@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
         data: { filledSlots: { increment: 1 } },
       });
 
-      return [vol, mv];
+      return { volunteerRecord: vol, missionVolunteer: mv };
     });
 
     return created({
