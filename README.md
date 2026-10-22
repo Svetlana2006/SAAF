@@ -55,6 +55,8 @@ npm install
 
 ### Run a portal in dev mode
 ```bash
+npm run dev             # start every portal and the API together
+# or start one service:
 npm run dev:entry
 npm run dev:citizen
 npm run dev:ngo

@@ -38,6 +38,11 @@ export function serverError(
   );
 }
 
+function isConfigurationError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /Environment variable not found|DATABASE_URL|DIRECT_URL|Can't reach database server|authentication is not configured/i.test(message);
+}
+
 /** Wraps a handler with standard try/catch + Zod error formatting. */
 export async function withErrorHandling(
   handler: () => Promise<NextResponse<any>>
@@ -47,6 +52,12 @@ export async function withErrorHandling(
   } catch (err) {
     if (err instanceof ZodError) {
       return badRequest("Validation failed", err.flatten().fieldErrors);
+    }
+    if (isConfigurationError(err)) {
+      return NextResponse.json(
+        { success: false, error: "Platform service is not configured. Add the required values to apps/api/.env.local." },
+        { status: 503 }
+      );
     }
     return serverError("Unexpected error", err instanceof Error ? err.message : err);
   }

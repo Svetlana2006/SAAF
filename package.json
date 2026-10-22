@@ -8,7 +8,8 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm run dev --workspace=@saaf/entry-portal",
+    "dev": "npm run dev:all",
+    "dev:all": "concurrently --kill-others-on-fail --names entry,citizen,ngo,csr,admin,api --prefix-colors blue,green,magenta,yellow,cyan,red \"npm run dev:entry\" \"npm run dev:citizen\" \"npm run dev:ngo\" \"npm run dev:csr\" \"npm run dev:admin\" \"npm run dev:api\"",
     "dev:entry": "npm run dev --workspace=@saaf/entry-portal",
     "dev:citizen": "npm run dev --workspace=@saaf/citizen-portal",
     "dev:ngo": "npm run dev --workspace=@saaf/ngo-portal",
@@ -21,5 +22,8 @@
   "engines": {
     "node": ">=18.0.0",
     "npm": ">=9.0.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
   }
 }
