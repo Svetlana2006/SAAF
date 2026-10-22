@@ -1,0 +1,12 @@
+{
+  "name": "@saaf/ui",
+  "private": true,
+  "version": "0.1.0",
+  "exports": {
+    "./institutional/InstitutionShell": "./src/institutional/InstitutionShell.tsx",
+    "./institutional/InstitutionUI": "./src/institutional/InstitutionUI.tsx"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  }
+}

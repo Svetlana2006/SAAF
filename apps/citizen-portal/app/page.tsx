@@ -1,3 +1,3 @@
-import HomePage from "@/components/citizen/HomePage";
+import CitizenDashboard from "@/components/citizen/CitizenDashboard";
 
-export default function Page() { return <HomePage />; }
+export default function CitizenPortalPage() { return <CitizenDashboard />; }

@@ -1,9 +1,10 @@
 import Link from "next/link";
 import Image from "next/image";
+import { portalUrls } from "@saaf/platform/urls";
 import styles from "./PortalShell.module.css";
 
 const links = [
-  ["Hub Overview", "/portal"],
+  ["Hub Overview", "/"],
   ["My Reports", "/report"],
   ["Neighborhood Activity", "/#activity"],
   ["Volunteer Drives", "/volunteer"],
@@ -25,9 +26,9 @@ export function PortalHeader({ active = "Hub Overview", compact = false }: { act
           {links.map(([label, href]) => <Link key={label} href={href} className={active === label ? styles.active : ""}>{label}</Link>)}
         </nav>
         <div className={styles.headerActions}>
-          <Link href="/entry" className={styles.login}>Login / Register</Link>
+          <a href={portalUrls.entry} className={styles.login}>Login / Register</a>
           <Link href="/report" className={styles.reportButton}><span>▣</span> Report Issue</Link>
-          <Link href="/entry" className={styles.profile} aria-label="Citizen account">A</Link>
+          <a href={portalUrls.entry} className={styles.profile} aria-label="Citizen account">A</a>
         </div>
         <details className={styles.mobileNav}><summary aria-label="Open navigation">☰</summary><nav>{links.map(([label, href]) => <Link key={label} href={href}>{label}</Link>)}<Link href="/report">Report an Issue</Link><Link href="/volunteer">Volunteer Drives</Link></nav></details>
       </header>
@@ -40,7 +41,7 @@ export function PortalFooter({ compact = false }: { compact?: boolean }) {
     {!compact && <div className={styles.help}><span>◉</span><b>Need immediate on-ground assistance with toxic or heavy industrial dumping?</b><a href="tel:18002447233">☎ 1800-244-SAAF (Toll Free)</a><span>·</span><a href="#whatsapp">Chat on WhatsApp</a></div>}
     <div className={styles.footerGrid}>
       <div className={styles.footerBrand}><b>SAAF</b> <small>Citizen Hub</small><p>Empowering community participation, hyper-local sanitation reporting, and transparent civic governance across city wards.</p></div>
-      <div><b>Direct Citizen Actions</b><Link href="/report">Report Waste or Hazard</Link><Link href="/volunteer">Join Neighborhood Cleanup</Link><Link href="/portal">Track Grievance Ticket</Link><Link href="/">Protect Ward Sanitation</Link></div>
+      <div><b>Direct Citizen Actions</b><Link href="/report">Report Waste or Hazard</Link><Link href="/volunteer">Join Neighborhood Cleanup</Link><Link href="/">Track Grievance Ticket</Link><Link href="/">Protect Ward Sanitation</Link></div>
       <div><b>Civic Transparency</b><Link href="/#activity">Ward 84 Operational SLA</Link><Link href="/#activity">Daily Collection Roster</Link><Link href="/#impact">Sanitation Inspector Directory</Link><Link href="/#impact">Open Civic Data API</Link></div>
       <div><b>Emergency Support</b><span>Toll-Free Command Room: 1800-244-SAAF</span><span>WhatsApp Grievance Bot: +91 94000-CLEAN</span><span>HQ Municipal Central Complex, Sector 4</span></div>
     </div>

@@ -26,8 +26,15 @@ SPOT → ASSESS → FUND → ACT → VERIFY → FOLLOW-UP
 ```
 saaf/
 ├── apps/
-│   └── citizen-portal/     # Next.js — citizen-facing portal
-├── packages/               # Shared libraries (UI, types, utils — added progressively)
+│   ├── entry-portal/       # Role selection and product entry
+│   ├── citizen-portal/     # Citizen reporting and volunteering
+│   ├── ngo-portal/         # NGO field operations
+│   ├── csr-portal/         # CSR funding and impact
+│   ├── admin-portal/       # Municipal administration
+│   └── api/                # Shared API routes
+├── packages/
+│   ├── platform/           # Prisma schema and server integrations
+│   └── ui/                 # Shared institutional UI primitives
 ├── UI/                     # Design reference assets
 ├── package.json            # Root npm workspaces config
 └── .gitignore
@@ -46,25 +53,21 @@ saaf/
 npm install
 ```
 
-### Run the citizen portal in dev mode
+### Run a portal in dev mode
 ```bash
-npm run dev
-# or directly:
-npm run dev --workspace=apps/citizen-portal
+npm run dev:entry
+npm run dev:citizen
+npm run dev:ngo
+npm run dev:csr
+npm run dev:admin
+npm run dev:api
 ```
 
 ---
 
 ## Apps
 
-### `apps/citizen-portal`
-Citizen-facing portal for SAAF. Built with **Next.js 15 (App Router)** and **TypeScript**.
-
-Key features (MVP):
-- Issue reporting with photo upload and GPS location
-- Status tracking
-- Community confirmation after NGO intervention
-- Sanitation hotspot map (public view)
+See [ARCHITECTURE.md](ARCHITECTURE.md) for ownership, ports, and the inter-app API boundary.
 
 ---
 

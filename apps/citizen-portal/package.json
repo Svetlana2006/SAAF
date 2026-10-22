@@ -1,25 +1,20 @@
 {
-  "name": "citizen-portal",
+  "name": "@saaf/citizen-portal",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --port 3001",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev",
-    "db:push": "prisma db push",
-    "db:seed": "prisma db seed",
-    "db:studio": "prisma studio"
-  },
-  "prisma": {
-    "seed": "ts-node --project prisma/tsconfig.json prisma/seed.ts"
+    "db:generate": "npm run db:generate --workspace=@saaf/platform",
+    "db:migrate": "npm run db:migrate --workspace=@saaf/platform",
+    "db:push": "npm run db:push --workspace=@saaf/platform",
+    "db:seed": "npm run db:seed --workspace=@saaf/platform",
+    "db:studio": "npm run db:studio --workspace=@saaf/platform"
   },
   "dependencies": {
-    "@supabase/ssr": "^0.12.7",
-    "@supabase/supabase-js": "^2.117.3",
-    "cloudinary": "^2.11.0",
+    "@saaf/platform": "*",
     "maplibre-gl": "^6.13.0",
     "next": "16.3.6",
     "react": "19.2.8",
@@ -28,14 +23,11 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
-    "@prisma/client": "^5.22.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.6",
-    "prisma": "^5.22.0",
-    "ts-node": "^10.9.2",
     "typescript": "^5"
   }
 }

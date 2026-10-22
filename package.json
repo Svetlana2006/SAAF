@@ -8,9 +8,15 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm run dev --workspace=apps/citizen-portal",
-    "build": "npm run build --workspace=apps/citizen-portal",
-    "lint": "npm run lint --workspace=apps/citizen-portal"
+    "dev": "npm run dev --workspace=@saaf/entry-portal",
+    "dev:entry": "npm run dev --workspace=@saaf/entry-portal",
+    "dev:citizen": "npm run dev --workspace=@saaf/citizen-portal",
+    "dev:ngo": "npm run dev --workspace=@saaf/ngo-portal",
+    "dev:csr": "npm run dev --workspace=@saaf/csr-portal",
+    "dev:admin": "npm run dev --workspace=@saaf/admin-portal",
+    "dev:api": "npm run dev --workspace=@saaf/api",
+    "build": "npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present"
   },
   "engines": {
     "node": ">=18.0.0",

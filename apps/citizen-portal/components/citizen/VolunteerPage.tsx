@@ -143,20 +143,20 @@ export default function VolunteerPage() {
   return (
     <div className={styles.page}>
       <header className={styles.topbar}>
-        <Link href="/portal" className={styles.brand}><span>✳</span><b>SAAF</b><small>CIVIC CLEANLINESS</small></Link>
+        <Link href="/" className={styles.brand}><span>✳</span><b>SAAF</b><small>CIVIC CLEANLINESS</small></Link>
         <nav>
-          <Link href="/portal">Hub Overview</Link>
+          <Link href="/">Hub Overview</Link>
           <Link href="/report">Report Issue</Link>
-          <Link href="/portal">My Reports</Link>
+          <Link href="/">My Reports</Link>
           <Link href="/">Neighborhood Activity</Link>
         </nav>
         <a href="tel:18002447233" className={styles.hotline}>☎ EMERGENCY HOTLINE<br /><b>1800-244-SAAF</b></a>
         <span className={styles.user}>Aarav Sharma<br /><small>Ward 84 · Civil Lines</small></span>
-        <Link href="/portal" className={styles.profile}>A</Link>
+        <Link href="/" className={styles.profile}>A</Link>
         <details className={styles.menu}>
           <summary>☰</summary>
           <nav>
-            <Link href="/portal">Hub Overview</Link>
+            <Link href="/">Hub Overview</Link>
             <Link href="/report">Report Issue</Link>
             <Link href="/volunteer">Volunteer Missions</Link>
           </nav>
@@ -165,7 +165,7 @@ export default function VolunteerPage() {
 
       <main>
         <div className={styles.breadcrumb}>
-          <Link href="/portal">⌂ Portal</Link>　/　Citizen Action Console　/　<b>Volunteer Missions</b>
+          <Link href="/">⌂ Portal</Link>　/　Citizen Action Console　/　<b>Volunteer Missions</b>
         </div>
 
         <section className={styles.hero}>

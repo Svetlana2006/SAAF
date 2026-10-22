@@ -154,9 +154,9 @@ export default function ReportPage() {
       <PortalHeader compact active="My Reports" />
       <main className={styles.main}>
         <div className={styles.breadcrumb}>
-          <Link href="/portal">⌂ Portal</Link>
+          <Link href="/">⌂ Portal</Link>
           <span>/</span>
-          <Link href="/portal">Citizen Action Console</Link>
+          <Link href="/">Citizen Action Console</Link>
           <span>/</span>
           <b>Report Issue</b>
           <span className={styles.sla}>● Municipal Dispatch Ready · Central Zone SLA: <strong>≤ 95 Mins</strong></span>
