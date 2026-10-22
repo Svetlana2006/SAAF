@@ -15,8 +15,15 @@ export default function NgoAccessPage() {
 
   useEffect(() => {
     const value = new URLSearchParams(window.location.search).get("reason") ?? "";
+    const isConfigured = Boolean(
+      process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+    );
+    if (value === "auth-config" && isConfigured) {
+      router.replace("/login");
+      return;
+    }
     setReason(value);
-  }, []);
+  }, [router]);
 
   const reasonMessage = reason === "membership"
     ? "Sign-in succeeded, but this account is not linked to an active NGO yet. An administrator must add its Supabase Auth user ID to NgoMembership."
