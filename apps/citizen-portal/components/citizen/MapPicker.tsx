@@ -3,8 +3,9 @@ import { useRef, useEffect, useCallback } from "react";
 import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
-// Tell MapLibre to load the worker from public/ instead of via bundler
-(maplibregl as any).config.WORKER_URL = "/maplibre-worker.mjs";
+// Tell MapLibre to load the worker from public/ instead of via bundler.
+const maplibreWithWorkerConfig = maplibregl as typeof maplibregl & { config: { WORKER_URL: string } };
+maplibreWithWorkerConfig.config.WORKER_URL = "/maplibre-worker.mjs";
 
 interface MapPickerProps {
   lat: number;

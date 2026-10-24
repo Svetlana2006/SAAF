@@ -7,13 +7,15 @@
  * POST response: { success, data: { signupId, missionName, message } }
  */
 import { NextRequest } from "next/server";
-import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@saaf/platform/prisma";
 import { ok, created, badRequest, notFound, withErrorHandling } from "@saaf/platform/api-helpers";
+import { rateLimit } from "@saaf/platform/rate-limit";
+import { VolunteerSignupSchema } from "../../../lib/public-input";
+import { hasMissionCapacity } from "@saaf/platform/workflow-policy";
 
 // ── GET /api/volunteers ──────────────────────────────────────────────────────
-export async function GET(_req: NextRequest) {
+export async function GET() {
   return withErrorHandling(async () => {
     const missions = await prisma.mission.findMany({
       where: { isActive: true },
@@ -26,7 +28,7 @@ export async function GET(_req: NextRequest) {
     });
 
     return ok(
-      missions.map((m: any) => ({
+      missions.map((m) => ({
         id: m.missionId,
         missionType: m.missionType,
         priority: m.priority,
@@ -57,19 +59,11 @@ export async function GET(_req: NextRequest) {
 }
 
 // ── POST /api/volunteers ─────────────────────────────────────────────────────
-const SignupSchema = z.object({
-  missionId: z.string().min(1, "Mission ID is required"),
-  name: z.string().min(2, "Full name required"),
-  email: z.string().email("Valid email required"),
-  phone: z.string().min(8, "Valid phone required"),
-  skills: z.array(z.string()).min(1, "Select at least one skill/role"),
-  preferredShift: z.string().min(1, "Select a shift"),
-  consentGiven: z.boolean({ required_error: "Consent is required" }),
-});
-
 export async function POST(req: NextRequest) {
+  const limited = rateLimit(req, "volunteer-signup", 5, 60 * 60 * 1000);
+  if (limited) return limited;
   return withErrorHandling(async () => {
-    const body = SignupSchema.parse(await req.json());
+    const body = VolunteerSignupSchema.parse(await req.json());
 
     if (!body.consentGiven) {
       return badRequest("You must accept the safety protocols to register.");
@@ -80,16 +74,18 @@ export async function POST(req: NextRequest) {
       where: { missionId: body.missionId },
     });
     if (!mission) return notFound("Mission not found.");
-    if (mission.filledSlots >= mission.totalSlots) {
+    if (!mission.isActive || !["planned", "mobilizing", "in_progress"].includes(mission.status) || !hasMissionCapacity(mission.filledSlots, mission.totalSlots)) {
       return badRequest("This mission is fully booked. Please select another.");
     }
 
     // Upsert the Volunteer record, then create MissionVolunteer link
-    const { volunteerRecord, missionVolunteer } = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const registration = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // Find or create the volunteer
       const vol = await tx.volunteer.upsert({
         where: { email: body.email },
-        update: { name: body.name, phone: body.phone, skills: body.skills },
+        // Public signup does not prove control of an existing email. Reuse the
+        // record for this mission without allowing an unauthenticated profile overwrite.
+        update: {},
         create: {
           name: body.name,
           email: body.email,
@@ -98,6 +94,15 @@ export async function POST(req: NextRequest) {
           availability: body.preferredShift,
         },
       });
+
+      const existing = await tx.missionVolunteer.findFirst({ where: { missionId: body.missionId, volunteerId: vol.volunteerId } });
+      if (existing) throw new Error("ALREADY_REGISTERED");
+
+      const reservation = await tx.mission.updateMany({
+        where: { missionId: body.missionId, isActive: true, status: { in: ["planned", "mobilizing", "in_progress"] }, filledSlots: { lt: mission.totalSlots } },
+        data: { filledSlots: { increment: 1 } },
+      });
+      if (reservation.count !== 1) throw new Error("MISSION_FULL");
 
       // Create the mission–volunteer link
       const mv = await tx.missionVolunteer.create({
@@ -108,14 +113,17 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // Increment filledSlots atomically
-      await tx.mission.update({
-        where: { missionId: body.missionId },
-        data: { filledSlots: { increment: 1 } },
-      });
-
       return { volunteerRecord: vol, missionVolunteer: mv };
+    }).catch((error: unknown) => {
+      if (error instanceof Error && error.message === "MISSION_FULL") return null;
+      if (error instanceof Error && error.message === "ALREADY_REGISTERED") return "duplicate" as const;
+      if (error && typeof error === "object" && "code" in error && error.code === "P2002") return "duplicate" as const;
+      throw error;
     });
+    if (registration === "duplicate") return badRequest("This email is already registered for this mission.");
+    if (!registration) return badRequest("This mission has just filled its remaining slots. Please choose another.");
+
+    const { volunteerRecord, missionVolunteer } = registration;
 
     return created({
       signupId: missionVolunteer.missionVolunteerId,
@@ -125,7 +133,7 @@ export async function POST(req: NextRequest) {
       preferredShift: body.preferredShift,
       confirmedAt: missionVolunteer.createdAt,
       message:
-        "You are registered! You will receive a WhatsApp confirmation with reporting coordinates and your safety kit credentials.",
+        "You are registered. Please save this confirmation; no WhatsApp notification is configured yet.",
     });
   });
 }

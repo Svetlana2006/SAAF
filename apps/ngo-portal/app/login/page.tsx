@@ -1,9 +1,17 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useState, useSyncExternalStore } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@saaf/platform/supabase/client";
 import styles from "./NgoAccess.module.css";
+
+function subscribeToLocation(callback: () => void) {
+  window.addEventListener("popstate", callback);
+  return () => window.removeEventListener("popstate", callback);
+}
+function getLocationReason() { return new URLSearchParams(window.location.search).get("reason") ?? ""; }
+function getServerLocationReason() { return ""; }
 
 export default function NgoAccessPage() {
   const router = useRouter();
@@ -11,19 +19,14 @@ export default function NgoAccessPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [reason, setReason] = useState("");
+  const reason = useSyncExternalStore(subscribeToLocation, getLocationReason, getServerLocationReason);
 
   useEffect(() => {
-    const value = new URLSearchParams(window.location.search).get("reason") ?? "";
     const isConfigured = Boolean(
       process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     );
-    if (value === "auth-config" && isConfigured) {
-      router.replace("/login");
-      return;
-    }
-    setReason(value);
-  }, [router]);
+    if (reason === "auth-config" && isConfigured) router.replace("/login");
+  }, [reason, router]);
 
   const reasonMessage = reason === "membership"
     ? "Sign-in succeeded, but this account is not linked to an active NGO yet. An administrator must add its Supabase Auth user ID to NgoMembership."
@@ -33,6 +36,8 @@ export default function NgoAccessPage() {
         ? "Supabase sign-in worked, but the NGO database tables are missing or unreachable. Apply the Prisma schema, then try again."
         : reason === "auth-config"
           ? "Supabase URL or publishable key is missing. Check apps/ngo-portal/.env.local and restart the dev server."
+        : reason === "invite"
+          ? "This invitation link is invalid or expired. Ask the administrator to send a new invitation."
         : "";
 
   async function signIn(event: FormEvent<HTMLFormElement>) {
@@ -60,7 +65,7 @@ export default function NgoAccessPage() {
         {error && <p className={styles.error} role="alert">{error}</p>}
         <button className={styles.button} disabled={busy}>{busy ? "Signing in…" : "Sign in to partner portal"}</button>
       </div>
-      <p className={styles.note}>Access is provided by the SAAF project administrator. If you don’t have an account, ask your NGO administrator to invite you.</p>
+      <p className={styles.note}>New to SAAF? <Link href="/register">Register your NGO for review</Link>. Access is granted after administrator approval.</p>
       <div className={styles.security}><span>●</span> Secure partner access</div>
     </form>
   </main>;

@@ -19,7 +19,8 @@ interface Mission {
   totalSlots: number;
   filledSlots: number;
   spotsLeft: number;
-  gearList: string[];
+  status: string;
+  priority: string;
 }
 
 type SignupState =
@@ -67,7 +68,10 @@ export default function VolunteerPage() {
   }, []);
 
   // ── Form state ─────────────────────────────────────────────────────────────
-  const [selectedSlug, setSelectedSlug] = useState("yamuna");
+  const [selectedSlug, setSelectedSlug] = useState("");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [time, setTime] = useState("Morning Shift");
   const [selectedRoles, setSelectedRoles] = useState<string[]>([
     "Waste Segregation & Plastic Triage",
@@ -94,6 +98,10 @@ export default function VolunteerPage() {
       setSignupState({ type: "error", message: "Please select at least one role." });
       return;
     }
+    if (name.trim().length < 2 || !email.includes("@") || phone.trim().length < 8) {
+      setSignupState({ type: "error", message: "Enter your name, valid email, and phone number to register." });
+      return;
+    }
 
     setSignupState({ type: "submitting" });
 
@@ -103,9 +111,9 @@ export default function VolunteerPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           missionId: selectedMission.id,
-          name: "Aarav Sharma",
-          email: "aarav.sharma@civicmail.in",
-          phone: "+919811240912",
+          name: name.trim(),
+          email: email.trim(),
+          phone: phone.trim(),
           skills: selectedRoles,
           preferredShift: time,
           consentGiven: consent,
@@ -118,14 +126,8 @@ export default function VolunteerPage() {
         return;
       }
 
-      // Update local mission slots
-      setMissions((prev) =>
-        prev.map((m) =>
-          m.id === selectedMission.id
-            ? { ...m, filledSlots: m.filledSlots + 1, spotsLeft: Math.max(0, m.spotsLeft - 1) }
-            : m
-        )
-      );
+      const refreshed = await fetch("/api/volunteers").then(r => r.json());
+      if (refreshed.success) setMissions(refreshed.data);
 
       setSignupState({
         type: "success",
@@ -150,9 +152,9 @@ export default function VolunteerPage() {
           <Link href="/">My Reports</Link>
           <Link href="/">Neighborhood Activity</Link>
         </nav>
-        <a href="tel:18002447233" className={styles.hotline}>☎ EMERGENCY HOTLINE<br /><b>1800-244-SAAF</b></a>
-        <span className={styles.user}>Aarav Sharma<br /><small>Ward 84 · Civil Lines</small></span>
-        <Link href="/" className={styles.profile}>A</Link>
+        <span className={styles.hotline}>Public signup<br /><b>Contact the mission organizer</b></span>
+        <span className={styles.user}>Public volunteer signup<br /><small>No authenticated volunteer account</small></span>
+        <Link href="/" className={styles.profile}>V</Link>
         <details className={styles.menu}>
           <summary>☰</summary>
           <nav>
@@ -171,18 +173,18 @@ export default function VolunteerPage() {
         <section className={styles.hero}>
           <div>
             <span className={styles.missionTag}>♧ MCD ACCREDITED COMMUNITY MISSION</span>
-            <h1>Join Verified Civic Action Taskforces in Ward 84</h1>
-            <p>Lend a hand in neighborhood desilting, segregation, and cleanups led by accredited municipal NGOs.<br />Earn recognized civic credits, verifiable attendance records, and complete safety equipment.</p>
+            <h1>Browse active volunteer missions</h1>
+            <p>Choose a mission listed by an NGO and register with your contact details.<br />Confirm safety arrangements directly with the mission organizer before attending.</p>
           </div>
-          <div className={styles.medical}><Icon>✚</Icon><span><small>MEDICAL &amp; SLA BACKUP</small><b>On-Site Paramedic Unit</b></span></div>
+          <div className={styles.medical}><Icon>✚</Icon><span><small>MISSION ARRANGEMENTS</small><b>Confirm details with organizer</b></span></div>
         </section>
 
         <section className={styles.stats}>
           {[
-            ["♙", String(missions.length || 3), "Ward 84 Missions (Within 3km)"],
-            ["♧", "342", "Volunteers Mobilized this Month"],
-            ["⛨", "100% Free", "Safety PPE & N95 Masks Supplied"],
-            ["♙", "MCD Certified", "Digital Karma Credit Protocol"],
+            ["♙", String(missions.length), "Active missions available"],
+            ["♧", String(missions.reduce((sum, mission) => sum + mission.filledSlots, 0)), "Filled mission slots"],
+            ["⛨", "Public signup", "Identity is self-reported"],
+            ["♙", "No login", "Volunteer accounts are not authenticated"],
           ].map(([icon, value, label]) => (
             <article key={label}><span>{icon}</span><div><b>{value}</b><small>{label}</small></div></article>
           ))}
@@ -192,7 +194,7 @@ export default function VolunteerPage() {
           <section className={styles.missionSection}>
             <div className={styles.sectionTitle}>
               <div><h2>Local Missions Around You</h2><p>Select an active neighborhood drive to prefill task targets &amp; shift roster.</p></div>
-              <button type="button" className={styles.filter}>◌ Live Geospatial Filter</button>
+              <span>Active missions from SAAF API</span>
             </div>
 
             {missionsError && <p style={{ color: "#f87171", padding: "1rem" }}>⚠ {missionsError}</p>}
@@ -207,8 +209,8 @@ export default function VolunteerPage() {
                 >
                   <div className={styles.missionHeading}>
                     <b className={
-                      mission.slug === "yamuna" ? styles.urgent
-                      : mission.slug === "mori" ? styles.eco
+                      mission.priority.toLowerCase() === "high" ? styles.urgent
+                      : mission.priority.toLowerCase() === "low" ? styles.eco
                       : styles.scheduled
                     }>{mission.tag}</b>
                     <small>{mission.wardLabel}</small>
@@ -217,7 +219,6 @@ export default function VolunteerPage() {
                   <h3>{mission.name}</h3>
                   <p>{mission.description}</p>
                   <div className={styles.missionInfo}>
-                    <img src={`/citizen/mission-${mission.slug}.png`} alt="" />
                     <div>
                       <span>◷　{formatSchedule(mission.scheduledAt, mission.endsAt)}</span>
                       <span>♧　{mission.venue}</span>
@@ -228,11 +229,11 @@ export default function VolunteerPage() {
                     </div>
                     <b>{mission.spotsLeft} Spots Remaining</b>
                   </div>
-                  <div className={styles.gear}>{mission.gearList.map((item) => <span key={item}>{item}</span>)}</div>
+                  <div className={styles.gear}><span>{mission.status}</span></div>
                 </article>
               ))}
             </div>
-            <button className={styles.mapButton}>⌖　 Explore Interactive Ward 84 Taskforce Map <span>⇱ Open GIS Map</span></button>
+            <p>No mission map is configured. Use the location shown on each mission and confirm details with its NGO.</p>
           </section>
 
           {/* ── Signup Form ─────────────────────────────────────────────────── */}
@@ -246,14 +247,13 @@ export default function VolunteerPage() {
               ▣　MISSION TARGET<small>{selectedMission?.name ?? "Select a mission"}</small>
             </div>
             <div className={styles.fields}>
-              <label>Full Name<input defaultValue="Aarav Sharma" /></label>
-              <label>Date of Birth<input type="date" defaultValue="1998-08-14" /></label>
-              <label>Email Address<input type="email" defaultValue="aarav.sharma@civicmail.in" /></label>
+              <label>Full Name<input autoComplete="name" value={name} onChange={e => setName(e.target.value)} /></label>
+              <label>Email Address<input type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} /></label>
               <label>Phone Number
-                <div className={styles.phone}>+91 <input defaultValue="98112-40912" /><b>✓ DigiLocker Verified</b></div>
+                <div className={styles.phone}><input type="tel" autoComplete="tel" value={phone} onChange={e => setPhone(e.target.value)} /></div>
               </label>
             </div>
-            <div className={styles.otp}>▣　OTP Active</div>
+            <p>Contact details are self-reported and are not verified by OTP.</p>
             <fieldset>
               <legend>What kind of work would you like to do?</legend>
               <small>Select roles you are comfortable supporting:</small>
@@ -281,13 +281,9 @@ export default function VolunteerPage() {
                 ))}
               </div>
             </fieldset>
-            <label className={styles.emergency}>
-              Emergency Contact &amp; Health Note (Optional)
-              <input placeholder="e.g. Asthmatic (outdoor dust sensitive) / Contact: 98110-XXXXX" />
-            </label>
             <label className={styles.consent}>
               <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
-              <span>I agree to adhere to MCD sanitation safety protocols, strictly wear high-visibility PPE &amp; nitrile gloves provided on-site, and follow instructions from the designated NGO Mission Commander.</span>
+              <span>I agree to follow safety instructions provided by the mission organizer. I understand that this public signup does not verify my identity or provide insurance, equipment, or emergency support.</span>
             </label>
 
             {/* Error */}
@@ -310,10 +306,7 @@ export default function VolunteerPage() {
             >
               {isSubmitting ? "⏳ Registering…" : isSuccess ? "✓ Registration Confirmed" : "Confirm Volunteer Registration　♙"}
             </button>
-            <button className={styles.back} onClick={() => setSignupState({ type: "idle" })}>
-              ↶　Join General Ward 84 Volunteer Pool
-            </button>
-            <div className={styles.info}>▣　You will instantly receive an automated WhatsApp confirmation with reporting coordinates, WhatsApp group link, and digital credentials to redeem your sanitized safety kit.</div>
+            <div className={styles.info}>Registration is recorded in the SAAF database. Save the confirmation ID; no WhatsApp/SMS notification or volunteer login is configured.</div>
           </aside>
         </div>
 
@@ -324,10 +317,10 @@ export default function VolunteerPage() {
           </div>
           <div>
             {[
-              ["♧", "Accredited NGOs Only", "Every clean-up taskforce lead is pre-vetted and audited by the Municipal Corporation of Delhi (MCD)."],
-              ["⛨", "Insurance & First Aid", "Active civic volunteers are covered by standard municipal incident coverage and immediate on-ground medical backup."],
-              ["♙", "Digital Karma & Credits", "Receive verifiable blockchain-hashed digital volunteer certificates eligible for college civic credits and corporate CSR awards."],
-              ["✳", "CSR Matched Impact", "Every kilo of plastic segregated unlocks matching municipal CSR funding for advanced mechanization."],
+              ["♧", "NGO-managed missions", "Available missions belong to the NGO that created or accepted them."],
+              ["⛨", "Safety arrangements", "Contact the mission organizer to confirm equipment, first aid, and site conditions before attending."],
+              ["♙", "Registration record", "The API records signup details and returns a confirmation ID; no certificate service is configured."],
+              ["✳", "Funding records", "This signup does not track rewards, payments, or CSR matching."],
             ].map(([icon, title, desc]) => (
               <article key={title as string}><Icon>{icon}</Icon><b>{title}</b><p>{desc}</p></article>
             ))}

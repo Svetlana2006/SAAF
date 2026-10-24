@@ -1,8 +1,9 @@
 "use client";
-import { ChangeEvent, useState } from "react";
+import { ChangeEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { Eyebrow, Icon, PortalFooter, PortalHeader } from "./PortalShell";
+import { useAuth, useUser } from "@clerk/nextjs";
+import { Icon, PortalFooter, PortalHeader } from "./PortalShell";
 import styles from "./ReportPage.module.css";
 
 const MapPicker = dynamic(() => import("./MapPicker"), {
@@ -32,16 +33,32 @@ type SubmitState =
   | { type: "error"; message: string };
 
 export default function ReportPage() {
+  const { getToken } = useAuth();
+  const { isLoaded: userLoaded, user } = useUser();
+  const primaryEmail = user?.primaryEmailAddress?.emailAddress;
+  const account = primaryEmail ? { email: primaryEmail, name: [user.firstName, user.lastName].filter(Boolean).join(" ") || primaryEmail } : null;
+  const [isAnonymous, setIsAnonymous] = useState(true);
   const [category, setCategory] = useState(categories[0]);
   const [severity, setSeverity] = useState("Urgent / Obstruction");
   const [note, setNote] = useState("");
-  const [isAnonymous, setIsAnonymous] = useState(false);
   const [photos, setPhotos] = useState<(ReportPhoto | null)[]>([null, null, null]);
   const [photoError, setPhotoError] = useState("");
   const [submitState, setSubmitState] = useState<SubmitState>({ type: "idle" });
   const [lat, setLat] = useState(28.668);
   const [lng, setLng] = useState(77.231);
   const [address, setAddress] = useState("");
+  const [locationConfirmed, setLocationConfirmed] = useState(false);
+
+  useEffect(() => {
+    if (!userLoaded || !primaryEmail) return;
+    void getToken().then((token) => {
+      if (!token) return undefined;
+      return fetch("/api/citizen/profile", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    }).catch(() => undefined);
+  }, [getToken, primaryEmail, userLoaded]);
 
   const uploadedCount = photos.filter(Boolean).length;
 
@@ -80,12 +97,17 @@ export default function ReportPage() {
     setPhotos((current) => {
       const next = [...current];
       for (const photo of additions) {
+        if (next.filter(Boolean).length >= 5) {
+          URL.revokeObjectURL(photo.src);
+          continue;
+        }
         const openSlot = next.slice(0, 3).findIndex((item) => item === null);
         const index = openSlot === -1 ? next.length : openSlot;
         next[index] = photo;
       }
       return next;
     });
+    if (photos.filter(Boolean).length + additions.length > 5) setPhotoError("A report can include up to 5 photos.");
     setSubmitState({ type: "idle" });
   }
 
@@ -105,6 +127,10 @@ export default function ReportPage() {
 
   async function handleSubmit() {
     if (uploadedCount < 3) return;
+    if (!locationConfirmed || address.trim().length < 3) {
+      setSubmitState({ type: "error", message: "Set the map pin or search for a location, then enter a nearby address or landmark." });
+      return;
+    }
     setSubmitState({ type: "submitting" });
 
     try {
@@ -115,16 +141,18 @@ export default function ReportPage() {
       formData.append("category", category);
       formData.append("severity", severity);
       formData.append("description", note);
-      formData.append("isAnonymous", String(isAnonymous));
-      // Use real geolocation when available, fall back to Ward 84 demo coords
+      formData.append("isAnonymous", (!account || isAnonymous).toString());
+      // The user must confirm or search the map location before submission.
       formData.append("latitude", lat.toString());
       formData.append("longitude", lng.toString());
       formData.append("address", address);
-      formData.append("citizenName", "Aarav Sharma");
-      formData.append("citizenEmail", "aarav.sharma@civicmail.in");
-      formData.append("citizenPhone", "+91 98110-XXXXX");
 
-      const res = await fetch("/api/reports", { method: "POST", body: formData });
+      const token = await getToken();
+      const res = await fetch("/api/reports", {
+        method: "POST",
+        body: formData,
+        ...(token ? { headers: { Authorization: `Bearer ${token}` } } : {}),
+      });
       const json = await res.json();
 
       if (!res.ok || !json.success) {
@@ -138,7 +166,7 @@ export default function ReportPage() {
         locationArea: json.data.locationArea,
         wardZone: json.data.wardZone,
       });
-    } catch (err) {
+    } catch {
       setSubmitState({
         type: "error",
         message: "Network error — please try again.",
@@ -159,26 +187,26 @@ export default function ReportPage() {
           <Link href="/">Citizen Action Console</Link>
           <span>/</span>
           <b>Report Issue</b>
-          <span className={styles.sla}>● Municipal Dispatch Ready · Central Zone SLA: <strong>≤ 95 Mins</strong></span>
+          <span className={styles.sla}>Guest reports are anonymous · signed-in reporters choose per submission</span>
         </div>
         <section className={styles.title}>
           <div>
             <span className={styles.audit}>♧ SAAF GROUND AUDIT PROTOCOL 2.4</span>
             <h1>Spot &amp; Report Civic Sanitation Issue</h1>
-            <p>Submit verified ground evidence to trigger high-priority municipal dispatch and notify accredited neighborhood clean-up taskforces.</p>
+            <p>Submit location, issue details, and photos. The API offers new reports to registered NGO partners; submission does not guarantee a response time.</p>
           </div>
           <div className={styles.ticket}>
             <Icon>▣</Icon>
             <span>
               <small>ASSIGNED REFERENCE</small>
-              <b>{isSuccess ? submitState.referenceId : "ND-2025-W84-9042"}</b>
+              <b>{isSuccess ? submitState.referenceId : "Generated after submission"}</b>
             </span>
           </div>
         </section>
         <section className={styles.stepper}>
           <div className={styles.step}><b>{uploadedCount >= 3 ? "✓" : "1"}</b><span><small>STEP 01</small><strong>Multi-Angle Capture</strong><small>{uploadedCount} of 3 angle slots filled</small></span></div>
           <i />
-          <div className={`${styles.step} ${styles.current}`}><b>2</b><span><small>STEP 02</small><strong>Geotag &amp; Ward</strong><small>Ward 84 · GPS Fixed</small></span></div>
+          <div className={`${styles.step} ${styles.current}`}><b>2</b><span><small>STEP 02</small><strong>Location</strong><small>Confirm pin or address</small></span></div>
           <i />
           <div className={styles.step}><b>3</b><span><small>STEP 03</small><strong>Issue Details</strong><small>Category &amp; Access Notes</small></span></div>
           <i />
@@ -276,15 +304,15 @@ export default function ReportPage() {
 
             {/* ── Reporter ───────────────────────────────────── */}
             <section className={styles.reporter}>
-              <span>AS</span>
+              <span>{account ? account.name.slice(0, 1).toUpperCase() : "G"}</span>
               <div>
-                <b>Aarav Sharma <small>Tier 2 · Civic Auditor</small></b>
-                <small>+91 98110-XXXXX · Ward 84 Registered Resident</small>
-                <p>Your credentials remain visible to verified Municipal Zone Officers &amp; NGO Dispatch for SLA compliance tracking while safeguarding your public anonymity.</p>
+                <b>{account ? account.name : "Guest report"} <small>{account ? account.email : "No account signed in"}</small></b>
+                <small>{account ? "Your account can view its submitted reports. Email and phone stay private." : "Guest submissions are always anonymous and are not linked to a Citizen account."}</small>
+                {!account && <p><Link href="/login">Sign in or create an account</Link> to share your display name with a report.</p>}
               </div>
-              <label>
-                <input type="checkbox" checked={isAnonymous} onChange={(e) => setIsAnonymous(e.target.checked)} />
-                Anonymous on Public Feed
+              <label className={styles.privacyChoice}>
+                <input type="checkbox" checked={!account || isAnonymous} disabled={!account} onChange={event => setIsAnonymous(event.target.checked)} />
+                <span><b>Keep this report anonymous</b><small>{account ? "When unchecked, your display name appears on the public report. Contact details remain private." : "Sign in to choose whether your display name is shown."}</small></span>
               </label>
             </section>
           </div>
@@ -294,32 +322,29 @@ export default function ReportPage() {
             <section className={styles.aiCard}>
               <header>
                 <Icon>✳</Icon>
-                <div><b>SAAF AI DEFENSE ENGINE</b><small>100% GENUINE</small></div>
+                <div><b>REPORT SUBMISSION CHECKS</b><small>SERVER VALIDATED</small></div>
               </header>
-              <h2>Zero Tamper Verified</h2>
-              <p>Real-time deepfake &amp; duplicate detection passed via cryptographic verification protocol.</p>
+              <h2>Input validation</h2>
+              <p>The API validates required fields, supported image formats, and file sizes.</p>
               {[
-                ["Synthetic Image Classifier", "0.03% AI Generation Likelihood (Safe)"],
-                ["Sensor Noise & Focal Depth", "Hardware Bayes matrix matches Phone 14 Pro"],
-                ["Solar Azimuth Corroboration", "Observed angle 31.2° aligns with sun position"],
-                ["Anti-Recycling Deduplication", "Perceptual hash collision 0.14% in Ward 84"],
+                ["Image content type", "JPEG, PNG, or WebP signature required"],
+                ["File size", "Maximum 8 MB per image"],
+                ["Number of photos", "Between 3 and 5"],
+                ["Location fields", "Coordinates and landmark are validated"],
               ].map(([t, d]) => (
                 <div className={styles.check} key={t}><b>✓</b><span><strong>{t}</strong><small>{d}</small></span></div>
               ))}
-              <div className={styles.load}>
-                <span><small>ESTIMATED LOAD</small><b>1.8 – 2.4 Metric Tons</b></span>
-                <span><small>Response Mode</small><b>Requires Mini-Tipper</b></span>
-              </div>
+              <div className={styles.load}><span><small>CLASSIFICATION</small><b>Selected by reporter</b></span><span><small>TRIAGE</small><b>No AI analysis configured</b></span></div>
             </section>
 
             {/* ── Location ───────────────────────────────────── */}
             <section className={styles.location}>
-              <header><Icon>⌖</Icon><b>Geotag &amp; Ward</b><span>GPS LOCKED</span></header>
+              <header><Icon>⌖</Icon><b>Location &amp; Ward</b><span>SELECT LOCATION</span></header>
               <MapPicker
                 lat={lat}
                 lng={lng}
                 address={address}
-                onMove={(newLat, newLng) => { setLat(newLat); setLng(newLng); }}
+                onMove={(newLat, newLng) => { setLat(newLat); setLng(newLng); setLocationConfirmed(true); }}
                 onAddressChange={setAddress}
                 apiKey={process.env.NEXT_PUBLIC_MAPTILER_KEY ?? ""}
               />
@@ -328,10 +353,10 @@ export default function ReportPage() {
             {/* ── Submit Card ────────────────────────────────── */}
             <section className={styles.submitCard}>
               <div className={styles.slaNote}>
-                ♧ <span><b>Guaranteed Response SLA</b><small>Accredited NGO taskforce or MCD sanitation tipper assigned within 95 minutes of digital signature verification.</small></span>
+                ♧ <span><b>Report privacy choice</b><small>Guest submissions stay anonymous. Signed-in citizens can choose whether to show their display name; email and phone stay private.</small></span>
               </div>
               <small className={styles.uploadRequirement}>
-                {uploadedCount < 3 ? "Fill all 3 angle slots before submitting." : "Photo requirement met · " + uploadedCount + " images ready"}
+                {uploadedCount < 3 ? "Add at least 3 photos (up to 5)." : "Photo requirement met · " + uploadedCount + " images ready"} {locationConfirmed ? "· Location selected" : "· Confirm a location on the map"}
               </small>
 
               {/* Error state */}
@@ -346,6 +371,7 @@ export default function ReportPage() {
                 <div style={{ marginBottom: "0.75rem", padding: "0.75rem", background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.35)", borderRadius: "8px", fontSize: "0.8rem" }}>
                   <b style={{ color: "#22c55e" }}>✓ Report Submitted · {submitState.referenceId}</b>
                   <br /><small>{submitState.locationArea}{submitState.wardZone ? ` · ${submitState.wardZone}` : ""}</small>
+                  <br /><Link href={`/reports/${encodeURIComponent(submitState.referenceId)}`}>View public status and photos</Link>
                 </div>
               )}
 
@@ -369,9 +395,9 @@ export default function ReportPage() {
           </aside>
         </div>
         <section className={styles.transparency}>
-          <div>◉ <span><b>Real-Time Open Data Transparency</b><small>Once submitted, this report's pipeline timeline will be transparent to citizens via satellite &amp; geotag audits.</small></span></div>
-          <b>94.8%<small>Ward 84 SLA Cleared</small></b>
-          <b>32m<small>Avg Heat Dispatch</small></b>
+          <div>◉ <span><b>Real-Time Open Data Transparency</b><small>Once submitted, this report&apos;s pipeline timeline will be transparent to citizens via satellite &amp; geotag audits.</small></span></div>
+          <b>Anonymous<small>No citizen account attached</small></b>
+          <b>3–5<small>Photos required per report</small></b>
         </section>
       </main>
       <PortalFooter compact />

@@ -1,20 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@saaf/platform/prisma";
 import { requireNgoPrincipal, isNgoResponse } from "@saaf/platform/ngo-auth";
+import { OpportunityDecisionSchema } from "../../../../../../lib/public-input";
+import { canAcceptOpportunity } from "@saaf/platform/workflow-policy";
 
 export async function POST(request: NextRequest, context: { params: Promise<{ offerId: string }> }) {
   const principal = await requireNgoPrincipal();
   if (isNgoResponse(principal)) return principal;
   const { offerId } = await context.params;
-  const body: unknown = await request.json().catch(() => null);
-  if (!body || typeof body !== "object" || !("decision" in body) || !["accept", "decline"].includes(String(body.decision))) return NextResponse.json({ error: "decision must be accept or decline." }, { status: 400 });
+  const parsed = OpportunityDecisionSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ error: "decision must be accept or decline." }, { status: 400 });
   const offer = await prisma.ngoReportOffer.findFirst({ where: { offerId, ngoId: principal.ngo.ngoId, status: "offered" }, include: { report: { include: { location: true } } } });
   if (!offer) return NextResponse.json({ error: "Opportunity not found or no longer available." }, { status: 404 });
-  if (body.decision === "decline") {
-    await prisma.ngoReportOffer.update({ where: { offerId }, data: { status: "declined", respondedAt: new Date() } });
+  if (parsed.data.decision === "decline") {
+    const declined = await prisma.ngoReportOffer.updateMany({ where: { offerId, ngoId: principal.ngo.ngoId, status: "offered" }, data: { status: "declined", respondedAt: new Date() } });
+    if (declined.count !== 1) return NextResponse.json({ error: "Opportunity has already been handled." }, { status: 409 });
     return NextResponse.json({ offerId, status: "declined" });
   }
-  if (!offer.report.locationId || !offer.report.location) return NextResponse.json({ error: "This report needs a location before it can be accepted." }, { status: 409 });
+  if (!canAcceptOpportunity(offer.status, offer.report.status, Boolean(offer.report.locationId && offer.report.location))) {
+    return NextResponse.json({ error: offer.report.locationId ? "This report has already been assigned." : "This report needs a location before it can be accepted." }, { status: 409 });
+  }
   try {
     const mission = await prisma.$transaction(async tx => {
       const fresh = await tx.ngoReportOffer.findFirst({ where: { offerId, status: "offered", report: { status: "open" } } });
