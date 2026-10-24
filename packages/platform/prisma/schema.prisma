@@ -11,6 +11,8 @@ datasource db {
 // ── Citizen ──────────────────────────────────────────────────────────────────
 model Citizen {
   citizenId   String   @id @default(cuid()) @map("citizen_id")
+  supabaseUserId String? @unique @map("supabase_user_id")
+  clerkUserId String? @unique @map("clerk_user_id")
   name        String
   email       String   @unique
   phone       String?
@@ -35,6 +37,7 @@ model Report {
   photoUrl    String?  @map("photo_url")
   severity    String
   status      String   // open/assigned/completed
+  isAnonymous Boolean  @default(true) @map("is_anonymous")
   createdAt   DateTime @default(now()) @map("created_at")
 
   citizen  Citizen?  @relation(fields: [citizenId], references: [citizenId])
@@ -43,8 +46,23 @@ model Report {
   citizenConfirmations CitizenConfirmation[]
   ngoOffers           NgoReportOffer[]
   missions            Mission[]
+  images              ReportImage[]
 
   @@map("reports")
+}
+
+model ReportImage {
+  imageId       String   @id @default(cuid()) @map("image_id")
+  reportId      String   @map("report_id")
+  photoUrl      String   @map("photo_url")
+  cloudinaryId  String?  @map("cloudinary_id")
+  purpose       String   @default("report")
+  uploadedAt    DateTime @default(now()) @map("uploaded_at")
+
+  report Report @relation(fields: [reportId], references: [reportId], onDelete: Cascade)
+
+  @@index([reportId, uploadedAt])
+  @@map("report_images")
 }
 
 // ── Location ─────────────────────────────────────────────────────────────────
@@ -131,6 +149,7 @@ model Mission {
   impactReports     ImpactReport[]
   statusEvents      MissionStatusEvent[]
   costClaims        NgoCostClaim[]
+  csrGrants         CsrGrant[]
 
   @@map("missions")
 }
@@ -149,6 +168,7 @@ model MissionVolunteer {
   volunteer Volunteer @relation(fields: [volunteerId], references: [volunteerId])
 
   @@map("mission_volunteers")
+  @@unique([missionId, volunteerId])
 }
 
 // ── Citizen_Confirmation ─────────────────────────────────────────────────────
@@ -364,4 +384,90 @@ model NgoCostClaimItem {
   claim NgoCostClaim @relation(fields: [claimId], references: [claimId])
 
   @@map("ngo_cost_claim_items")
+}
+
+// Public partner applications are reviewed before portal access is created.
+model NgoApplication {
+  applicationId      String    @id @default(cuid()) @map("application_id")
+  name               String
+  contactPerson      String    @map("contact_person")
+  email              String
+  phone              String
+  address            String
+  registrationNumber String?   @map("registration_number")
+  expertiseAreas     String[]  @map("expertise_areas")
+  status             String    @default("pending") // pending/approved/rejected
+  createdAt          DateTime  @default(now()) @map("created_at")
+  reviewedAt         DateTime? @map("reviewed_at")
+  reviewedBy         String?   @map("reviewed_by")
+
+  @@index([status, createdAt])
+  @@index([email, status])
+  @@map("ngo_applications")
+}
+
+model CsrApplication {
+  applicationId      String    @id @default(cuid()) @map("application_id")
+  organizationName   String    @map("organization_name")
+  contactPerson      String    @map("contact_person")
+  email              String
+  phone              String
+  registrationNumber String?   @map("registration_number")
+  status             String    @default("pending") // pending/approved/rejected
+  createdAt          DateTime  @default(now()) @map("created_at")
+  reviewedAt         DateTime? @map("reviewed_at")
+  reviewedBy         String?   @map("reviewed_by")
+
+  @@index([status, createdAt])
+  @@index([email, status])
+  @@map("csr_applications")
+}
+
+model CsrOrganization {
+  csrOrganizationId String   @id @default(cuid()) @map("csr_organization_id")
+  name              String
+  contactPerson     String   @map("contact_person")
+  email             String   @unique
+  phone             String
+  registrationNumber String? @map("registration_number")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  memberships CsrMembership[]
+  grants      CsrGrant[]
+
+  @@map("csr_organizations")
+}
+
+model CsrMembership {
+  membershipId      String   @id @default(cuid()) @map("membership_id")
+  supabaseUserId    String   @unique @map("supabase_user_id")
+  csrOrganizationId String   @map("csr_organization_id")
+  role              String   @default("owner")
+  isActive          Boolean  @default(true) @map("is_active")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  organization CsrOrganization @relation(fields: [csrOrganizationId], references: [csrOrganizationId])
+
+  @@index([csrOrganizationId, isActive])
+  @@map("csr_memberships")
+}
+
+// Records a CSR allocation commitment. It does not represent a payment.
+model CsrGrant {
+  grantId           String   @id @default(cuid()) @map("grant_id")
+  csrOrganizationId String   @map("csr_organization_id")
+  missionId         String   @map("mission_id")
+  amount            Float
+  status            String   @default("committed") // committed/released/cancelled
+  notes             String?
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  organization CsrOrganization @relation(fields: [csrOrganizationId], references: [csrOrganizationId])
+  mission      Mission         @relation(fields: [missionId], references: [missionId])
+
+  @@index([csrOrganizationId, status, createdAt])
+  @@index([missionId])
+  @@unique([csrOrganizationId, missionId])
+  @@map("csr_grants")
 }

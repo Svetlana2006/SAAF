@@ -4,13 +4,17 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@saaf/platform/prisma";
 import { ok, notFound, withErrorHandling } from "@saaf/platform/api-helpers";
+import { requirePortalRole, isRoleAuthResponse } from "@saaf/platform/role-auth";
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const principal = await requirePortalRole(["admin"]);
+  if (isRoleAuthResponse(principal)) return principal;
   return withErrorHandling(async () => {
     const { id } = await params;
+    if (!/^c[a-z0-9]{8,}$/i.test(id)) return notFound("Report not found.");
 
     const report = await prisma.report.findFirst({
       where: { reportId: id },
@@ -19,6 +23,7 @@ export async function GET(
           select: { name: true, email: true, phone: true, isAnonymous: true, role: true },
         },
         location: true,
+        images: { select: { imageId: true, photoUrl: true, cloudinaryId: true, purpose: true, uploadedAt: true } },
       },
     });
 
@@ -31,7 +36,8 @@ export async function GET(
       description: report.description,
       status: report.status,
       photoUrl: report.photoUrl,
-      citizen: report.citizen?.isAnonymous
+      images: report.images,
+      citizen: report.isAnonymous
         ? null
         : report.citizen
         ? {

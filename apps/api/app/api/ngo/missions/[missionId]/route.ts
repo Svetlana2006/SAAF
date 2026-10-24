@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@saaf/platform/prisma";
 import { z } from "zod";
 import { requireNgoPrincipal, isNgoResponse } from "@saaf/platform/ngo-auth";
-
-const transitions: Record<string, string[]> = { planned: ["mobilizing"], mobilizing: ["in_progress", "planned"], in_progress: ["review_pending", "mobilizing"] };
+import { canTransitionMission } from "@saaf/platform/workflow-policy";
 
 export async function GET(_request: NextRequest, context: { params: Promise<{ missionId: string }> }) {
   const principal = await requireNgoPrincipal(); if (isNgoResponse(principal)) return principal;
@@ -19,7 +18,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ m
   if (!parsed.success) return NextResponse.json({ error: "Provide a valid status." }, { status: 400 });
   const mission = await prisma.mission.findFirst({ where: { missionId, ngoId: principal.ngo.ngoId } });
   if (!mission) return NextResponse.json({ error: "Mission not found." }, { status: 404 });
-  if (!transitions[mission.status]?.includes(parsed.data.status)) return NextResponse.json({ error: `Cannot change mission from ${mission.status} to ${parsed.data.status}.` }, { status: 409 });
+  if (!canTransitionMission(mission.status, parsed.data.status)) return NextResponse.json({ error: `Cannot change mission from ${mission.status} to ${parsed.data.status}.` }, { status: 409 });
   const updated = await prisma.$transaction(async tx => {
     const result = await tx.mission.update({ where: { missionId }, data: { status: parsed.data.status, isActive: true } });
     await tx.missionStatusEvent.create({ data: { missionId, membershipId: principal.membership.membershipId, fromStatus: mission.status, toStatus: parsed.data.status, note: "Mission status updated by NGO partner." } });

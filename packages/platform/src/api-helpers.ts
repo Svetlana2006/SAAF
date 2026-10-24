@@ -31,16 +31,29 @@ export function serverError(
   message = "Internal server error",
   details?: unknown
 ): NextResponse<ApiError> {
-  console.error("[API]", message, details);
+  // Keep response and server logs free of request payloads and database error details.
+  console.error("[API]", message);
   return NextResponse.json(
     { success: false, error: message },
     { status: 500 }
   );
 }
 
-function isConfigurationError(error: unknown): boolean {
+export function platformUnavailableMessage(error: unknown): string | null {
   const message = error instanceof Error ? error.message : String(error);
-  return /Environment variable not found|DATABASE_URL|DIRECT_URL|Can't reach database server|authentication is not configured/i.test(message);
+  if (/authentication is not configured/i.test(message)) {
+    return "Authentication is not configured. Check the Supabase URL and publishable key, then restart the API.";
+  }
+  if (/Environment variable not found:\s*(DATABASE_URL|DIRECT_URL)/i.test(message)) {
+    return "Database connection settings are missing. Set DATABASE_URL and DIRECT_URL in apps/api/.env or apps/api/.env.local, then restart the API.";
+  }
+  if (/Can't reach database server|ECONNREFUSED|ETIMEDOUT|P1001/i.test(message)) {
+    return "Database server is unreachable. Verify DATABASE_URL and confirm PostgreSQL is running and accessible from the API.";
+  }
+  if (/P1013|invalid (?:database )?(?:connection )?url|invalid datasource url|url must start with|connection string.*invalid/i.test(message)) {
+    return "The database connection URL is invalid. Check its format and URL-encode special characters in the username or password.";
+  }
+  return null;
 }
 
 /** Wraps a handler with standard try/catch + Zod error formatting. */
@@ -53,9 +66,10 @@ export async function withErrorHandling(
     if (err instanceof ZodError) {
       return badRequest("Validation failed", err.flatten().fieldErrors);
     }
-    if (isConfigurationError(err)) {
+    const unavailableMessage = platformUnavailableMessage(err);
+    if (unavailableMessage) {
       return NextResponse.json(
-        { success: false, error: "Platform service is not configured. Add the required values to apps/api/.env.local." },
+        { success: false, error: unavailableMessage },
         { status: 503 }
       );
     }

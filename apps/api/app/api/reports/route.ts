@@ -7,13 +7,9 @@
  *   category     — string
  *   severity     — string
  *   description  — string (max 500)
- *   isAnonymous  — "true" | "false"
  *   latitude     — number string
  *   longitude    — number string
  *   address      — string
- *   citizenName  (optional)
- *   citizenEmail (optional)
- *   citizenPhone (optional)
  *
  * Response 201: { success, data: { reportId, locationArea, wardZone } }
  * Response 400: { success: false, error }
@@ -27,32 +23,27 @@ import { prisma } from "@saaf/platform/prisma";
 import { uploadToCloudinary } from "@saaf/platform/cloudinary";
 import { resolveLocation } from "@saaf/platform/location-resolver";
 import { created, ok, badRequest, withErrorHandling } from "@saaf/platform/api-helpers";
-
-const BodySchema = z.object({
-  category: z.string().min(1, "Category is required"),
-  severity: z.string().min(1, "Severity is required"),
-  description: z.string().max(500).default(""),
-  isAnonymous: z.string().transform((v) => v === "true").default("false"),
-  latitude: z.string().transform((v) => parseFloat(v)),
-  longitude: z.string().transform((v) => parseFloat(v)),
-  address: z.string().min(1, "Address is required"),
-  citizenName: z.string().optional(),
-  citizenEmail: z.string().email().optional(),
-  citizenPhone: z.string().optional(),
-});
+import { rateLimit } from "@saaf/platform/rate-limit";
+import { isAllowedImage } from "@saaf/platform/image-validation";
+import { PublicReportBodySchema } from "../../../lib/public-input";
+import { resolveOptionalCitizenSession } from "@saaf/platform/citizen-auth";
+import { isValidReportPhotoCount, reportImageCreateData } from "@saaf/platform/workflow-policy";
+const maxFileBytes = 8 * 1024 * 1024;
 
 export async function POST(req: NextRequest) {
+  const limited = rateLimit(req, "report-submit", 5, 60 * 60 * 1000);
+  if (limited) return limited;
   return withErrorHandling(async () => {
     // ── Parse multipart form data ─────────────────────────────────────────
     const formData = await req.formData();
     const photos = formData.getAll("photos") as File[];
 
-    if (!photos || photos.length < 3) {
-      return badRequest("Minimum 3 photos required.");
+    if (!isValidReportPhotoCount(photos.length)) {
+      return badRequest("Provide between 3 and 5 photos.");
     }
     for (const file of photos) {
-      if (!file.type.startsWith("image/")) {
-        return badRequest(`'${file.name}' is not a valid image file.`);
+      if (!(file instanceof File) || file.size > maxFileBytes || !(await isAllowedImage(file))) {
+        return badRequest("Each photo must be a non-empty JPEG, PNG, or WebP image no larger than 8 MB.");
       }
     }
 
@@ -61,50 +52,39 @@ export async function POST(req: NextRequest) {
     for (const [key, value] of formData.entries()) {
       if (typeof value === "string") rawBody[key] = value;
     }
-    const body = BodySchema.parse(rawBody);
+    const body = PublicReportBodySchema.parse(rawBody);
+    const citizenSession = await resolveOptionalCitizenSession(req);
+    if (citizenSession.response) return citizenSession.response;
+    const citizen = citizenSession.citizen;
 
     // ── Resolve nearest Location from GPS ─────────────────────────────────
     const locationInfo = await resolveLocation(body.latitude, body.longitude);
 
-    // ── Find or upsert Citizen record ─────────────────────────────────────
-    let citizenRecord = null;
-    if (!body.isAnonymous && body.citizenEmail) {
-      citizenRecord = await prisma.citizen.upsert({
-        where: { email: body.citizenEmail },
-        update: {
-          name: body.citizenName ?? "Anonymous",
-          phone: body.citizenPhone ?? undefined,
-        },
-        create: {
-          name: body.citizenName ?? "Anonymous",
-          email: body.citizenEmail,
-          phone: body.citizenPhone ?? undefined,
-          role: "citizen",
-          isAnonymous: false,
-        },
-      });
-    }
+    // ── Create report without an authenticated citizen identity ─────────────────────────────────────
+    // This endpoint accepts public anonymous reports. Never trust identity fields from a browser.
 
     // ── Upload photos to Cloudinary as Evidence records ───────────────────
     // Photos uploaded BEFORE mission assignment — stage = BEFORE
     const evidenceUploads = await Promise.all(
       photos.map(async (file) => {
         const buffer = Buffer.from(await file.arrayBuffer());
-        const { url } = await uploadToCloudinary(buffer, file.name, "saaf/reports");
-        return { photoUrl: url, type: "before" as const };
+        const uploaded = await uploadToCloudinary(buffer, file.name, "saaf/reports");
+        return { photoUrl: uploaded.url, cloudinaryId: uploaded.cloudinaryId, purpose: "report" };
       })
     );
 
     // ── Create Report then re-fetch with includes ─────────────────────────
     const createdReport = await prisma.report.create({
       data: {
-        citizenId: citizenRecord?.citizenId ?? undefined,
+        citizenId: citizen && !body.isAnonymous ? citizen.citizenId : undefined,
         locationId: locationInfo?.locationId ?? undefined,
         category: body.category,
         severity: body.severity,
         description: body.description,
         photoUrl: evidenceUploads[0]?.photoUrl ?? null,
         status: "open",
+        isAnonymous: !citizen || body.isAnonymous,
+        images: { create: reportImageCreateData(evidenceUploads) },
       },
     });
 
@@ -129,10 +109,7 @@ export async function POST(req: NextRequest) {
     // Re-fetch with relations for the response
     const result = await prisma.report.findFirst({
       where: { reportId: createdReport.reportId },
-      include: {
-        location: { select: { nameArea: true, wardZone: true } },
-        citizen: { select: { name: true } },
-      },
+      include: { location: { select: { nameArea: true, wardZone: true } }, images: { select: { imageId: true, photoUrl: true, purpose: true, uploadedAt: true } } },
     });
 
 
@@ -145,6 +122,7 @@ export async function POST(req: NextRequest) {
       wardZone: result?.location?.wardZone ?? "Unknown Zone",
       primaryPhotoUrl: evidenceUploads[0]?.photoUrl ?? null,
       totalPhotos: evidenceUploads.length,
+      images: result?.images ?? [],
     });
   });
 }
@@ -153,53 +131,61 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   return withErrorHandling(async () => {
     const { searchParams } = new URL(req.url);
-    const zone = searchParams.get("zone") ?? undefined;
-    const status = searchParams.get("status") ?? undefined;
-    const page = Math.max(1, parseInt(searchParams.get("page") ?? "1"));
-    const limit = Math.min(50, parseInt(searchParams.get("limit") ?? "20"));
-    const skip = (page - 1) * limit;
+    const zoneValue = searchParams.get("zone");
+    const statusValue = searchParams.get("status");
+    const zone = zoneValue === null ? undefined : z.string().trim().min(1).max(80).safeParse(zoneValue);
+    const status = statusValue === null ? undefined : z.enum(["open", "assigned", "completed"]).safeParse(statusValue);
+    if (zone && !zone.success) return badRequest("Invalid zone parameter.");
+    if (status && !status.success) return badRequest("Invalid status parameter.");
+    const page = z.coerce.number().int().min(1).max(10000).safeParse(searchParams.get("page") ?? "1");
+    const limit = z.coerce.number().int().min(1).max(50).safeParse(searchParams.get("limit") ?? "20");
+    if (!page.success || !limit.success) return badRequest("page must be 1–10000 and limit must be 1–50.");
+    const skip = (page.data - 1) * limit.data;
 
     const where = {
-      ...(zone ? { location: { wardZone: zone } } : {}),
-      ...(status ? { status } : {}),
+      ...(zone ? { location: { wardZone: zone.data } } : {}),
+      ...(status ? { status: status.data } : {}),
     };
 
     const [reports, total] = await Promise.all([
       prisma.report.findMany({
         where,
         skip,
-        take: limit,
+        take: limit.data,
         orderBy: { createdAt: "desc" },
         include: {
-          citizen: { select: { name: true, isAnonymous: true } },
           location: { select: { nameArea: true, wardZone: true, areaType: true, isHotspot: true, latitude: true, longitude: true } },
+          images: { select: { imageId: true, photoUrl: true, purpose: true, uploadedAt: true } },
+          citizen: { select: { name: true } },
         },
       }),
       prisma.report.count({ where }),
     ]);
 
     return ok({
-      reports: reports.map((r: any) => ({
+      reports: reports.map((r) => ({
         reportId: r.reportId,
         category: r.category,
         severity: r.severity,
-        description: r.description,
         status: r.status,
         photoUrl: r.photoUrl,
-        citizenName: r.citizen?.isAnonymous ? null : r.citizen?.name ?? null,
+        images: r.images,
+        reporterName: !r.isAnonymous ? r.citizen?.name ?? null : null,
+        isAnonymous: r.isAnonymous,
         location: r.location
           ? {
               nameArea: r.location.nameArea,
               wardZone: r.location.wardZone,
               areaType: r.location.areaType,
               isHotspot: r.location.isHotspot,
-              latitude: r.location.latitude,
-              longitude: r.location.longitude,
+              // Coarse map point only; never return the report's exact coordinates publicly.
+              latitude: Math.round(r.location.latitude * 100) / 100,
+              longitude: Math.round(r.location.longitude * 100) / 100,
             }
           : null,
         createdAt: r.createdAt,
       })),
-      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+      pagination: { page: page.data, limit: limit.data, total, totalPages: Math.ceil(total / limit.data) },
     });
   });
 }

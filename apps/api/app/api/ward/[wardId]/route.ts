@@ -14,7 +14,8 @@ export async function GET(
   { params }: { params: Promise<{ wardId: string }> }
 ) {
   return withErrorHandling(async () => {
-    const { wardId } = await params;
+    const wardId = (await params).wardId.trim();
+    if (wardId.length < 2 || wardId.length > 100) return notFound("Ward not found.");
 
     // Try to find by locationId first, then by wardZone
     const location = await prisma.location.findFirst({
@@ -22,9 +23,7 @@ export async function GET(
       include: {
         reports: {
           orderBy: { createdAt: "desc" },
-          include: {
-            citizen: { select: { name: true, isAnonymous: true } },
-          },
+          select: { reportId: true, category: true, severity: true, status: true, createdAt: true },
         },
         missions: {
           where: { isActive: true },
@@ -49,12 +48,9 @@ export async function GET(
       location: {
         locationId: location.locationId,
         nameArea: location.nameArea,
-        address: location.address,
         wardZone: location.wardZone,
         areaType: location.areaType,
         isHotspot: location.isHotspot,
-        latitude: location.latitude,
-        longitude: location.longitude,
       },
       kpis: {
         totalReports,
@@ -68,7 +64,7 @@ export async function GET(
         activeMissions: location.missions.length,
         activeHotspots: location.hotspots.length,
       },
-      activeMissions: location.missions.map((m: any) => ({
+      activeMissions: location.missions.map((m) => ({
         missionId: m.missionId,
         missionType: m.missionType,
         priority: m.priority,
@@ -77,21 +73,20 @@ export async function GET(
         ngoName: m.ngo?.name ?? m.leadNgo,
         spotsLeft: Math.max(0, m.totalSlots - m.filledSlots),
       })),
-      activeHotspots: location.hotspots.map((h: any) => ({
+      activeHotspots: location.hotspots.map((h) => ({
         hotspotId: h.hotspotId,
         recurrenceCount: h.recurrenceCount,
         lastCleanedDate: h.lastCleanedDate,
-        rootCauses: h.rootCauses.map((rc: any) => ({
+        rootCauses: h.rootCauses.map((rc) => ({
           causeType: rc.causeType,
           description: rc.description,
         })),
       })),
-      recentReports: reports.slice(0, 5).map((r: any) => ({
+      recentReports: reports.slice(0, 5).map((r) => ({
         reportId: r.reportId,
         category: r.category,
         severity: r.severity,
         status: r.status,
-        citizenName: r.citizen?.isAnonymous ? null : r.citizen?.name ?? null,
         createdAt: r.createdAt,
       })),
     });

@@ -1,22 +1,22 @@
 import Link from "next/link";
 import Image from "next/image";
-import { portalUrls } from "@saaf/platform/urls";
 import styles from "./PortalShell.module.css";
 
 const links = [
   ["Hub Overview", "/"],
-  ["My Reports", "/report"],
+  ["Report Issue", "/report"],
   ["Neighborhood Activity", "/#activity"],
   ["Volunteer Drives", "/volunteer"],
   ["Civic Impact", "/#impact"],
+  ["Account", "/login"],
 ] as const;
 
 export function PortalHeader({ active = "Hub Overview", compact = false }: { active?: string; compact?: boolean }) {
   return (
     <>
       <div className={styles.utility}>
-        <span><i /> Municipal Sanitation Authority · Official Citizen Access Portal</span>
-        <span className={styles.utilityRight}><b>☎</b> Emergency Civic Hotline: <strong>1800-244-SAAF</strong><span className={styles.language}>ENG | हिन्दी</span></span>
+        <span><i /> SAAF community portal · community reporting</span>
+        <span className={styles.utilityRight}><span className={styles.language}>ENG | हिन्दी</span></span>
       </div>
       <header className={styles.header}>
         <Link href="/" className={styles.brand} aria-label="SAAF Citizen Hub home">
@@ -26,9 +26,8 @@ export function PortalHeader({ active = "Hub Overview", compact = false }: { act
           {links.map(([label, href]) => <Link key={label} href={href} className={active === label ? styles.active : ""}>{label}</Link>)}
         </nav>
         <div className={styles.headerActions}>
-          <a href={portalUrls.entry} className={styles.login}>Login / Register</a>
+          <Link href="/login" className={styles.login}>Sign in / account</Link>
           <Link href="/report" className={styles.reportButton}><span>▣</span> Report Issue</Link>
-          <a href={portalUrls.entry} className={styles.profile} aria-label="Citizen account">A</a>
         </div>
         <details className={styles.mobileNav}><summary aria-label="Open navigation">☰</summary><nav>{links.map(([label, href]) => <Link key={label} href={href}>{label}</Link>)}<Link href="/report">Report an Issue</Link><Link href="/volunteer">Volunteer Drives</Link></nav></details>
       </header>
@@ -38,12 +37,12 @@ export function PortalHeader({ active = "Hub Overview", compact = false }: { act
 
 export function PortalFooter({ compact = false }: { compact?: boolean }) {
   return <footer className={styles.footer}>
-    {!compact && <div className={styles.help}><span>◉</span><b>Need immediate on-ground assistance with toxic or heavy industrial dumping?</b><a href="tel:18002447233">☎ 1800-244-SAAF (Toll Free)</a><span>·</span><a href="#whatsapp">Chat on WhatsApp</a></div>}
+    {!compact && <div className={styles.help}><span>◉</span><b>For urgent hazards, contact your local municipal emergency service.</b></div>}
     <div className={styles.footerGrid}>
       <div className={styles.footerBrand}><b>SAAF</b> <small>Citizen Hub</small><p>Empowering community participation, hyper-local sanitation reporting, and transparent civic governance across city wards.</p></div>
-      <div><b>Direct Citizen Actions</b><Link href="/report">Report Waste or Hazard</Link><Link href="/volunteer">Join Neighborhood Cleanup</Link><Link href="/">Track Grievance Ticket</Link><Link href="/">Protect Ward Sanitation</Link></div>
-      <div><b>Civic Transparency</b><Link href="/#activity">Ward 84 Operational SLA</Link><Link href="/#activity">Daily Collection Roster</Link><Link href="/#impact">Sanitation Inspector Directory</Link><Link href="/#impact">Open Civic Data API</Link></div>
-      <div><b>Emergency Support</b><span>Toll-Free Command Room: 1800-244-SAAF</span><span>WhatsApp Grievance Bot: +91 94000-CLEAN</span><span>HQ Municipal Central Complex, Sector 4</span></div>
+      <div><b>Citizen Actions</b><Link href="/report">Submit an anonymous report</Link><Link href="/volunteer">Browse volunteer missions</Link><Link href="/">View public report activity</Link></div>
+      <div><b>Platform information</b><Link href="/#activity">Public report feed</Link><Link href="/volunteer">Mission availability</Link></div>
+      <div><b>Safety</b><span>Confirm mission conditions and equipment directly with the organizer.</span></div>
     </div>
     <div className={styles.legal}><span>© 2025 SAAF Municipal Sanitation Initiative · Department of Urban Civic Systems.</span><span>Privacy Charter　 Citizen Service Guarantee　 Accessibility</span></div>
   </footer>;

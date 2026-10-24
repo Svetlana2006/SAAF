@@ -21,11 +21,10 @@ export async function GET() {
           reportId: true,
           category: true,
           severity: true,
-          description: true,
           status: true,
           createdAt: true,
           location: {
-            select: { nameArea: true, latitude: true, longitude: true },
+            select: { nameArea: true },
           },
         },
       }),

@@ -7,7 +7,8 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@saaf/platform/prisma";
-import { ok, notFound, badRequest, withErrorHandling } from "@saaf/platform/api-helpers";
+import { ok, notFound, withErrorHandling } from "@saaf/platform/api-helpers";
+import { requirePortalRole, isRoleAuthResponse } from "@saaf/platform/role-auth";
 
 const PatchSchema = z.object({
   status: z.enum(["open", "assigned", "completed"], {
@@ -19,8 +20,11 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const principal = await requirePortalRole(["admin"]);
+  if (isRoleAuthResponse(principal)) return principal;
   return withErrorHandling(async () => {
     const { id } = await params;
+    if (!/^c[a-z0-9]{8,}$/i.test(id)) return notFound("Report not found.");
     const body = PatchSchema.parse(await req.json());
 
     const existing = await prisma.report.findFirst({ where: { reportId: id } });
