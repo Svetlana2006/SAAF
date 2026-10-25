@@ -15,8 +15,17 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ o
   const parsed = bodySchema.safeParse(raw);
   if (!parsed.success) return NextResponse.json({ error: "Enter a positive budget amount with no more than two decimal places." }, { status: 400 });
   try {
-    const result = await prisma.csrOrganization.updateMany({ where: { csrOrganizationId: organizationId }, data: { approvedFundingBudget: parsed.data.approvedFundingBudget } });
-    if (!result.count) return NextResponse.json({ error: "CSR organization not found." }, { status: 404 });
+    const result = await prisma.$transaction(async tx => {
+      const current = await tx.csrOrganization.findUnique({ where: { csrOrganizationId: organizationId }, select: { approvedFundingBudget: true } });
+      if (!current) return null;
+      const updated = await tx.csrOrganization.update({ where: { csrOrganizationId: organizationId }, data: { approvedFundingBudget: parsed.data.approvedFundingBudget } });
+      await tx.adminAuditEvent.create({ data: {
+        actorUserId: principal.user.id, actionType: "csr_organization.budget_changed", recordType: "csr_organization", recordId: organizationId,
+        previousValue: { approvedFundingBudget: current.approvedFundingBudget }, newValue: { approvedFundingBudget: updated.approvedFundingBudget },
+      } });
+      return updated;
+    });
+    if (!result) return NextResponse.json({ error: "CSR organization not found." }, { status: 404 });
     return NextResponse.json({ approvedFundingBudget: parsed.data.approvedFundingBudget });
   } catch (error) {
     console.error("[admin-csr-budget] update failed", error);

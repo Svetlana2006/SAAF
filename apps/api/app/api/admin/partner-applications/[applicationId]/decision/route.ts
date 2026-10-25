@@ -35,10 +35,18 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ap
   if (parsed.data.type === "csr" && parsed.data.decision === "approve" && parsed.data.approvedFundingBudget == null) return NextResponse.json({ error: "Enter an approved CSR commitment budget before approval." }, { status: 400 });
 
   if (parsed.data.decision === "reject") {
-    const result = parsed.data.type === "ngo"
-      ? await prisma.ngoApplication.updateMany({ where: { applicationId, status: "pending" }, data: { status: "rejected", reviewedAt: new Date(), reviewedBy: principal.user.id } })
-      : await prisma.csrApplication.updateMany({ where: { applicationId, status: "pending" }, data: { status: "rejected", reviewedAt: new Date(), reviewedBy: principal.user.id } });
-    if (!result.count) return NextResponse.json({ error: "Pending application not found." }, { status: 404 });
+    const result = await prisma.$transaction(async tx => {
+      const changed = parsed.data.type === "ngo"
+        ? await tx.ngoApplication.updateMany({ where: { applicationId, status: "pending" }, data: { status: "rejected", reviewedAt: new Date(), reviewedBy: principal.user.id } })
+        : await tx.csrApplication.updateMany({ where: { applicationId, status: "pending" }, data: { status: "rejected", reviewedAt: new Date(), reviewedBy: principal.user.id } });
+      if (!changed.count) return 0;
+      await tx.adminAuditEvent.create({ data: {
+        actorUserId: principal.user.id, actionType: `${parsed.data.type}_application.rejected`, recordType: `${parsed.data.type}_application`, recordId: applicationId,
+        newValue: { status: "rejected" },
+      } });
+      return changed.count;
+    });
+    if (!result) return NextResponse.json({ error: "Pending application not found." }, { status: 404 });
     return NextResponse.json({ status: "rejected" });
   }
 
@@ -47,8 +55,12 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ap
     if (parsed.data.type === "ngo") {
       const application = await prisma.ngoApplication.findFirst({ where: { applicationId, status: "pending" } });
       if (!application) return NextResponse.json({ error: "Pending NGO application not found." }, { status: 404 });
-      const { user, invited } = await findOrInviteUser(application.email, application.contactPerson, "ngo");
+      const { admin, user, invited } = await findOrInviteUser(application.email, application.contactPerson, "ngo");
       invitationSent = invited;
+      const { error: roleError } = await admin.auth.admin.updateUserById(user.id, {
+        app_metadata: { ...(user.app_metadata ?? {}), role: "ngo" },
+      });
+      if (roleError) throw new Error("Could not activate the NGO portal role. Retry the approval.");
       await prisma.$transaction(async tx => {
         const stillPending = await tx.ngoApplication.findFirst({ where: { applicationId, status: "pending" } });
         if (!stillPending) throw new Error("This application has already been reviewed.");
@@ -57,6 +69,10 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ap
         const ngo = await tx.ngo.create({ data: { name: application.name, contactPerson: application.contactPerson, email: application.email, phone: application.phone, address: application.address, expertiseAreas: application.expertiseAreas } });
         await tx.ngoMembership.create({ data: { supabaseUserId: user.id, ngoId: ngo.ngoId, role: "owner", isActive: true } });
         await tx.ngoApplication.update({ where: { applicationId }, data: { status: "approved", reviewedAt: new Date(), reviewedBy: principal.user.id } });
+        await tx.adminAuditEvent.create({ data: {
+          actorUserId: principal.user.id, actionType: "ngo_application.approved", recordType: "ngo_application", recordId: applicationId,
+          newValue: { status: "approved", accountUserId: user.id, ngoId: ngo.ngoId },
+        } });
       });
     } else {
       const application = await prisma.csrApplication.findFirst({ where: { applicationId, status: "pending" } });
@@ -73,6 +89,10 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ap
         const organization = await tx.csrOrganization.create({ data: { name: application.organizationName, contactPerson: application.contactPerson, email: application.email, phone: application.phone, registrationNumber: application.registrationNumber, approvedFundingBudget: parsed.data.approvedFundingBudget! } });
         await tx.csrMembership.create({ data: { supabaseUserId: user.id, csrOrganizationId: organization.csrOrganizationId, role: "owner", isActive: true } });
         await tx.csrApplication.update({ where: { applicationId }, data: { status: "approved", reviewedAt: new Date(), reviewedBy: principal.user.id } });
+        await tx.adminAuditEvent.create({ data: {
+          actorUserId: principal.user.id, actionType: "csr_application.approved", recordType: "csr_application", recordId: applicationId,
+          newValue: { status: "approved", accountUserId: user.id, csrOrganizationId: organization.csrOrganizationId, approvedFundingBudget: organization.approvedFundingBudget },
+        } });
       });
     }
     return NextResponse.json({ status: "approved", invitationSent });
@@ -82,6 +102,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ap
     if (/Could not send an account invitation/.test(message)) return NextResponse.json({ error: "Could not send the account invitation. Check Supabase Auth email settings and retry." }, { status: 502 });
     if (/already reviewed|already has an active NGO membership|Unique constraint/i.test(message)) return NextResponse.json({ error: "This application was reviewed already or its account is already linked to an organization." }, { status: 409 });
     if (/Could not grant the CSR portal role/.test(message)) return NextResponse.json({ error: "Could not activate CSR access. Retry the approval." }, { status: 502 });
+    if (/Could not activate the NGO portal role/.test(message)) return NextResponse.json({ error: "Could not activate NGO access. Retry the approval." }, { status: 502 });
     console.error("[partner-application] approval failed");
     return NextResponse.json({ error: "Could not approve the application. Review server configuration and retry." }, { status: 502 });
   }

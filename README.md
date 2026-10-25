@@ -119,3 +119,4 @@ The citizen dashboard shows public community reports because anonymous reports c
 The API unit tests exercise trusted-role decisions, organization query scoping, input validation, report image data mapping, mission status transitions, and slot capacity. They do not run database-backed routes; a separate integration suite against an isolated test database is needed for end-to-end route authorization coverage. The public report and volunteer write limits are process-local. A multi-instance deployment needs a shared rate-limit store such as Redis/Upstash and appropriate proxy IP configuration.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for app ownership and routes.
+See [ADMIN_WORKFLOW_MAP.md](ADMIN_WORKFLOW_MAP.md) for Admin APIs, the additive migration, known schema limits, and manual verification steps.

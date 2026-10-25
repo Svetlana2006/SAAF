@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { NGO_SESSION_COOKIE } from "@saaf/platform/ngo-session";
 
+/** Clears legacy NGO session cookies; Supabase sessions sign out in the portal client. */
 export async function POST() {
   const response = NextResponse.json({ signedOut: true });
   response.cookies.set(NGO_SESSION_COOKIE, "", {
