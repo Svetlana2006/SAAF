@@ -8,7 +8,14 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
-  return <html lang="en"><body>
-    <ClerkProvider publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}>{children}</ClerkProvider>
+  const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+  const authConfigured = Boolean(publishableKey);
+
+  return <html lang="en" suppressHydrationWarning><body>
+    {authConfigured ? (
+      <ClerkProvider publishableKey={publishableKey}>{children}</ClerkProvider>
+    ) : (
+      children
+    )}
   </body></html>;
 }

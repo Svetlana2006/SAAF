@@ -20,10 +20,19 @@ export async function GET() {
     const missions = await prisma.mission.findMany({
       where: { isActive: true },
       orderBy: { scheduledDate: "asc" },
-      include: {
+      select: {
+        missionId: true,
+        missionType: true,
+        priority: true,
+        status: true,
+        assignedTo: true,
+        scheduledDate: true,
+        estimatedCost: true,
+        totalSlots: true,
+        filledSlots: true,
+        leadNgo: true,
         ngo: { select: { name: true } },
         location: { select: { nameArea: true, wardZone: true } },
-        _count: { select: { missionVolunteers: true } },
       },
     });
 
@@ -72,6 +81,15 @@ export async function POST(req: NextRequest) {
     // Verify mission exists and has open slots
     const mission = await prisma.mission.findFirst({
       where: { missionId: body.missionId },
+      select: {
+        missionId: true,
+        missionType: true,
+        assignedTo: true,
+        isActive: true,
+        status: true,
+        filledSlots: true,
+        totalSlots: true,
+      },
     });
     if (!mission) return notFound("Mission not found.");
     if (!mission.isActive || !["planned", "mobilizing", "in_progress"].includes(mission.status) || !hasMissionCapacity(mission.filledSlots, mission.totalSlots)) {

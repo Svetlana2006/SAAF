@@ -1,0 +1,16 @@
+.container{display:grid;gap:10px}
+.mapFrame{position:relative;overflow:hidden;border:1px solid #e2e7f0;border-radius:9px;background:#edf2f4}
+.mapCanvas{height:390px;width:100%}
+.mapError{position:absolute;right:10px;bottom:10px;max-width:min(420px,calc(100% - 20px));padding:8px 10px;border:1px solid #f1c6bd;border-radius:6px;background:#fff7f4;color:#8d2b1d;font:600 11px/1.4 Manrope,Arial,sans-serif}
+.areaSummary{display:flex;justify-content:space-between;align-items:center;gap:10px;color:#485547;font:500 10px/1.5 Manrope,Arial,sans-serif}
+.areaSummary strong{color:#006b2c;font-weight:800}
+.areaLegend{display:flex;flex-wrap:wrap;gap:7px}
+.areaLegend>span{display:inline-flex;align-items:center;gap:6px;padding:5px 8px;border:1px solid #e4e8f0;border-radius:999px;background:#f7f8fc;color:#455244;font:600 9px/1.2 Manrope,Arial,sans-serif}
+.areaLegend i{width:7px;height:7px;border-radius:50%;background:#00873a}
+.marker{display:grid;place-items:center;min-width:34px;height:34px;padding:0 7px;border:2px solid #fff;border-radius:50%;background:#087a38;box-shadow:0 2px 8px #17251d55;color:#fff;font:800 12px/1 Manrope,Arial,sans-serif;cursor:pointer}
+.marker:hover,.marker:focus-visible{background:#005522;transform:scale(1.08)}
+.popup{display:grid;gap:4px;min-width:150px;color:#253129;font:500 11px/1.4 Manrope,Arial,sans-serif}
+.popup strong{font-size:12px}
+.popup span:last-child{color:#006b2c;font-weight:700}
+.emptyState{padding:12px;border-radius:7px;background:#f2f3ff;color:#596457;font:500 11px/1.5 Manrope,Arial,sans-serif}
+@media(max-width:650px){.mapCanvas{height:300px}.areaSummary{align-items:flex-start;flex-direction:column;gap:2px}}

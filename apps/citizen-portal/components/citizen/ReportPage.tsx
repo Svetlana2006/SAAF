@@ -29,7 +29,7 @@ const categories = [
 type SubmitState =
   | { type: "idle" }
   | { type: "submitting" }
-  | { type: "success"; referenceId: string; locationArea: string; wardZone: string }
+  | { type: "success"; referenceId: string; locationArea: string; wardZone: string; warning?: string }
   | { type: "error"; message: string };
 
 export default function ReportPage() {
@@ -153,23 +153,35 @@ export default function ReportPage() {
         body: formData,
         ...(token ? { headers: { Authorization: `Bearer ${token}` } } : {}),
       });
-      const json = await res.json();
+      let json: {
+        success?: boolean;
+        error?: string;
+        data?: { reportId?: string; locationArea?: string; wardZone?: string; warning?: string };
+      };
+      try {
+        json = await res.json();
+      } catch {
+        setSubmitState({ type: "error", message: `The reporting service returned an invalid response (HTTP ${res.status}).` });
+        return;
+      }
 
-      if (!res.ok || !json.success) {
-        setSubmitState({ type: "error", message: json.error ?? "Submission failed." });
+      if (!res.ok || !json.success || !json.data?.reportId) {
+        setSubmitState({ type: "error", message: json.error ?? `Submission failed (HTTP ${res.status}).` });
         return;
       }
 
       setSubmitState({
         type: "success",
         referenceId: json.data.reportId,
-        locationArea: json.data.locationArea,
-        wardZone: json.data.wardZone,
+        locationArea: json.data.locationArea ?? "Location recorded",
+        wardZone: json.data.wardZone ?? "Zone pending",
+        warning: json.data.warning,
       });
-    } catch {
+    } catch (error) {
+      console.error("Report submission request failed.", error);
       setSubmitState({
         type: "error",
-        message: "Network error — please try again.",
+        message: "The reporting service could not be reached. Check that the API is running, then try again.",
       });
     }
   }
@@ -371,6 +383,7 @@ export default function ReportPage() {
                 <div style={{ marginBottom: "0.75rem", padding: "0.75rem", background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.35)", borderRadius: "8px", fontSize: "0.8rem" }}>
                   <b style={{ color: "#22c55e" }}>✓ Report Submitted · {submitState.referenceId}</b>
                   <br /><small>{submitState.locationArea}{submitState.wardZone ? ` · ${submitState.wardZone}` : ""}</small>
+                  {submitState.warning && <><br /><small role="status">{submitState.warning}</small></>}
                   <br /><Link href={`/reports/${encodeURIComponent(submitState.referenceId)}`}>View public status and photos</Link>
                 </div>
               )}

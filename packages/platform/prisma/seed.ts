@@ -205,6 +205,98 @@ async function main() {
     },
   });
 
+  const extraReports = [
+    {
+      reportId: "rpt-civil-lines-02",
+      citizenId: citizen2.citizenId,
+      locationId: loc84.locationId,
+      category: "Overflowing public bin",
+      severity: "Moderate",
+      description: "Overflowing community waste bin is spilling onto the pavement beside the market lane.",
+      status: "open",
+    },
+    {
+      reportId: "rpt-civil-lines-03",
+      citizenId: citizen1.citizenId,
+      locationId: loc84.locationId,
+      category: "Loose debris near drain",
+      severity: "High",
+      description: "Construction debris is clogging the drainage channel and blocking runoff after rain.",
+      status: "assigned",
+    },
+    {
+      reportId: "rpt-mori-gate-02",
+      citizenId: citizen2.citizenId,
+      locationId: loc42.locationId,
+      category: "Illegal dumping",
+      severity: "Urgent / Obstruction",
+      description: "Motorists are dumping mixed solid waste near the bus bay and outside the entry lane.",
+      status: "open",
+    },
+    {
+      reportId: "rpt-yamuna-02",
+      citizenId: citizen1.citizenId,
+      locationId: locYamuna.locationId,
+      category: "Plastic accumulation",
+      severity: "Hazardous Spill",
+      description: "Large plastic mats and riverbank litter are collecting near the ghat stairs.",
+      status: "assigned",
+    },
+    {
+      reportId: "rpt-civil-lines-04",
+      citizenId: citizen2.citizenId,
+      locationId: loc84.locationId,
+      category: "Blocked stormwater channel",
+      severity: "High",
+      description: "The stormwater channel is blocked by household waste and is not draining after heavy rain.",
+      status: "completed",
+    },
+    {
+      reportId: "rpt-mori-gate-03",
+      citizenId: citizen1.citizenId,
+      locationId: loc42.locationId,
+      category: "Uncollected garbage",
+      severity: "Moderate",
+      description: "Large amounts of mixed waste remain uncollected along the pedestrian corridor.",
+      status: "open",
+    },
+    {
+      reportId: "rpt-yamuna-03",
+      citizenId: citizen2.citizenId,
+      locationId: locYamuna.locationId,
+      category: "Flooding risk",
+      severity: "Urgent / Obstruction",
+      description: "The blocked drain is creating a flood risk for nearby homes and market stalls.",
+      status: "assigned",
+    },
+    {
+      reportId: "rpt-civil-lines-05",
+      citizenId: citizen1.citizenId,
+      locationId: loc84.locationId,
+      category: "Dilapidated solid waste point",
+      severity: "Moderate",
+      description: "The municipal waste chute is damaged and leaking onto the roadside during pickup.",
+      status: "completed",
+    },
+  ];
+
+  for (const seedReport of extraReports) {
+    await prisma.report.upsert({
+      where: { reportId: seedReport.reportId },
+      update: {},
+      create: {
+        reportId: seedReport.reportId,
+        citizenId: seedReport.citizenId,
+        locationId: seedReport.locationId,
+        category: seedReport.category,
+        severity: seedReport.severity,
+        description: seedReport.description,
+        photoUrl: null,
+        status: seedReport.status,
+      },
+    });
+  }
+
   await prisma.ngoReportOffer.upsert({
     where: { offerId: "offer-ngo-demo-1" },
     update: {},

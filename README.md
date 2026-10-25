@@ -88,6 +88,8 @@ npm run dev:admin
 npm run dev:api
 ```
 
+`npm run dev` keeps the remaining apps running if one app fails to start; check that app's prefixed output and port while the others remain available. Press Ctrl+C to stop the full stack.
+
 CSR dashboard, mission commitments, and impact screens read organization-scoped mission, grant, and impact records from the API. CSR commitments are database records only; payments, escrow, and disbursement are not implemented. Other Admin screens remain demonstration interfaces; partner applications are live.
 
 ## Checks

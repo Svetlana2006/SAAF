@@ -17,7 +17,7 @@
  * GET /api/reports?zone=Central&status=open&page=1&limit=20
  * Response 200: { success, data: { reports[], pagination } }
  */
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@saaf/platform/prisma";
 import { uploadToCloudinary } from "@saaf/platform/cloudinary";
@@ -65,13 +65,22 @@ export async function POST(req: NextRequest) {
 
     // ── Upload photos to Cloudinary as Evidence records ───────────────────
     // Photos uploaded BEFORE mission assignment — stage = BEFORE
-    const evidenceUploads = await Promise.all(
-      photos.map(async (file) => {
-        const buffer = Buffer.from(await file.arrayBuffer());
-        const uploaded = await uploadToCloudinary(buffer, file.name, "saaf/reports");
-        return { photoUrl: uploaded.url, cloudinaryId: uploaded.cloudinaryId, purpose: "report" };
-      })
-    );
+    let evidenceUploads: { photoUrl: string; cloudinaryId: string; purpose: string }[];
+    try {
+      evidenceUploads = await Promise.all(
+        photos.map(async (file) => {
+          const buffer = Buffer.from(await file.arrayBuffer());
+          const uploaded = await uploadToCloudinary(buffer, file.name, "saaf/reports");
+          return { photoUrl: uploaded.url, cloudinaryId: uploaded.cloudinaryId, purpose: "report" };
+        })
+      );
+    } catch (error) {
+      console.error("[API] Report photo upload failed.", error);
+      return NextResponse.json(
+        { success: false, error: "Photo upload failed. Check the API's Cloudinary configuration and try again." },
+        { status: 503 },
+      );
+    }
 
     // ── Create Report then re-fetch with includes ─────────────────────────
     const createdReport = await prisma.report.create({
@@ -91,38 +100,43 @@ export async function POST(req: NextRequest) {
     // Route every new open case to the best matching partners. If no expertise
     // term matches the citizen category, offer it to all registered NGOs so
     // unusual reports are still visible for manual triage.
-    const ngos = await prisma.ngo.findMany({ select: { ngoId: true, expertiseAreas: true } });
-    const termsByCategory: Record<string, string[]> = {
-      drain: ["desilting", "drainage"],
-      plastic: ["plastic_recovery", "waste_segregation"],
-      garbage: ["waste_segregation", "plastic_recovery"],
-      waste: ["waste_segregation", "plastic_recovery"],
-      rubble: ["rubble_clearance"],
-      awareness: ["awareness_campaigns"],
-    };
-    const categoryKey = body.category.toLowerCase();
-    const matchedTerms = Object.entries(termsByCategory).filter(([term]) => categoryKey.includes(term)).flatMap(([, terms]) => terms);
-    const matchedNgos = ngos.filter(ngo => ngo.expertiseAreas.some(area => matchedTerms.includes(area.toLowerCase())));
-    const recipients = matchedNgos.length ? matchedNgos : ngos;
-    if (recipients.length) await prisma.ngoReportOffer.createMany({ data: recipients.map(ngo => ({ reportId: createdReport.reportId, ngoId: ngo.ngoId })), skipDuplicates: true });
-
-    // Re-fetch with relations for the response
-    const result = await prisma.report.findFirst({
-      where: { reportId: createdReport.reportId },
-      include: { location: { select: { nameArea: true, wardZone: true } }, images: { select: { imageId: true, photoUrl: true, purpose: true, uploadedAt: true } } },
-    });
-
+    let routingWarning: string | undefined;
+    try {
+      const ngos = await prisma.ngo.findMany({ select: { ngoId: true, expertiseAreas: true } });
+      const termsByCategory: Record<string, string[]> = {
+        drain: ["desilting", "drainage"],
+        plastic: ["plastic_recovery", "waste_segregation"],
+        garbage: ["waste_segregation", "plastic_recovery"],
+        waste: ["waste_segregation", "plastic_recovery"],
+        rubble: ["rubble_clearance"],
+        awareness: ["awareness_campaigns"],
+      };
+      const categoryKey = body.category.toLowerCase();
+      const matchedTerms = Object.entries(termsByCategory).filter(([term]) => categoryKey.includes(term)).flatMap(([, terms]) => terms);
+      const matchedNgos = ngos.filter(ngo => ngo.expertiseAreas.some(area => matchedTerms.includes(area.toLowerCase())));
+      const recipients = matchedNgos.length ? matchedNgos : ngos;
+      if (recipients.length) {
+        await prisma.ngoReportOffer.createMany({
+          data: recipients.map(ngo => ({ reportId: createdReport.reportId, ngoId: ngo.ngoId })),
+          skipDuplicates: true,
+        });
+      }
+    } catch (error) {
+      console.error("[API] Report saved but partner routing failed.", error);
+      routingWarning = "Your report was saved, but partner organizations could not be notified.";
+    }
 
     return created({
-      reportId: result?.reportId ?? createdReport.reportId,
-      category: result?.category ?? body.category,
-      severity: result?.severity ?? body.severity,
-      status: result?.status ?? "open",
-      locationArea: result?.location?.nameArea ?? body.address,
-      wardZone: result?.location?.wardZone ?? "Unknown Zone",
+      reportId: createdReport.reportId,
+      category: createdReport.category,
+      severity: createdReport.severity,
+      status: createdReport.status,
+      locationArea: locationInfo?.nameArea ?? body.address,
+      wardZone: locationInfo?.wardZone ?? "Unknown Zone",
       primaryPhotoUrl: evidenceUploads[0]?.photoUrl ?? null,
       totalPhotos: evidenceUploads.length,
-      images: result?.images ?? [],
+      images: evidenceUploads.map(({ photoUrl, purpose }) => ({ photoUrl, purpose })),
+      ...(routingWarning ? { warning: routingWarning } : {}),
     });
   });
 }

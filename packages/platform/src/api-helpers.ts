@@ -31,8 +31,7 @@ export function serverError(
   message = "Internal server error",
   details?: unknown
 ): NextResponse<ApiError> {
-  // Keep response and server logs free of request payloads and database error details.
-  console.error("[API]", message);
+  console.error("[API]", message, details);
   return NextResponse.json(
     { success: false, error: message },
     { status: 500 }
