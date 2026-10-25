@@ -1,13 +1,11 @@
 generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = ["multiSchema"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
-  schemas   = ["public", "auth"]
 }
 
 // ── Citizen ──────────────────────────────────────────────────────────────────
@@ -434,6 +432,7 @@ model CsrOrganization {
   email             String   @unique
   phone             String
   registrationNumber String? @map("registration_number")
+  approvedFundingBudget Float? @map("approved_funding_budget")
   createdAt         DateTime @default(now()) @map("created_at")
 
   memberships CsrMembership[]
@@ -464,6 +463,7 @@ model CsrGrant {
   amount            Float
   status            String   @default("committed") // committed/released/cancelled
   notes             String?
+  authorizedBy      String?  @map("authorized_by")
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
 

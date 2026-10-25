@@ -4,7 +4,7 @@ import { prisma } from "@saaf/platform/prisma";
 import { createAdminClient } from "@saaf/platform/supabase/admin";
 import { requirePortalRole, isRoleAuthResponse } from "@saaf/platform/role-auth";
 
-const bodySchema = z.object({ type: z.enum(["ngo", "csr"]), decision: z.enum(["approve", "reject"]) });
+const bodySchema = z.object({ type: z.enum(["ngo", "csr"]), decision: z.enum(["approve", "reject"]), approvedFundingBudget: z.number().positive().max(100_000_000).refine(value => Math.abs(Math.round(value * 100) - value * 100) < 1e-8).optional() });
 
 async function findOrInviteUser(email: string, fullName: string, portal: "ngo" | "csr") {
   const admin = createAdminClient();
@@ -32,6 +32,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ap
   try { raw = await request.json(); } catch { return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400 }); }
   const parsed = bodySchema.safeParse(raw);
   if (!parsed.success) return NextResponse.json({ error: "Choose an application type and decision." }, { status: 400 });
+  if (parsed.data.type === "csr" && parsed.data.decision === "approve" && parsed.data.approvedFundingBudget == null) return NextResponse.json({ error: "Enter an approved CSR commitment budget before approval." }, { status: 400 });
 
   if (parsed.data.decision === "reject") {
     const result = parsed.data.type === "ngo"
@@ -69,7 +70,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ap
       await prisma.$transaction(async tx => {
         const stillPending = await tx.csrApplication.findFirst({ where: { applicationId, status: "pending" } });
         if (!stillPending) throw new Error("This application has already been reviewed.");
-        const organization = await tx.csrOrganization.create({ data: { name: application.organizationName, contactPerson: application.contactPerson, email: application.email, phone: application.phone, registrationNumber: application.registrationNumber } });
+        const organization = await tx.csrOrganization.create({ data: { name: application.organizationName, contactPerson: application.contactPerson, email: application.email, phone: application.phone, registrationNumber: application.registrationNumber, approvedFundingBudget: parsed.data.approvedFundingBudget! } });
         await tx.csrMembership.create({ data: { supabaseUserId: user.id, csrOrganizationId: organization.csrOrganizationId, role: "owner", isActive: true } });
         await tx.csrApplication.update({ where: { applicationId }, data: { status: "approved", reviewedAt: new Date(), reviewedBy: principal.user.id } });
       });
