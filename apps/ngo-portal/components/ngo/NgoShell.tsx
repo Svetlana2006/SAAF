@@ -1,9 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { createClient as createSupabaseClient } from "@saaf/platform/supabase/client";
 import styles from "./NgoShell.module.css";
 
 const nav = [
@@ -15,9 +14,10 @@ const nav = [
 
 export default function NgoShell({ children }: Readonly<{ children: React.ReactNode }>) {
   const pathname = usePathname();
+  const router = useRouter();
   const [profile, setProfile] = useState<{ user?: { email?: string }; ngo?: { name?: string }; membership?: { role?: string } } | null>(null);
   useEffect(() => { fetch("/api/ngo/me").then(r => r.ok ? r.json() : null).then(setProfile).catch(() => setProfile(null)); }, []);
-  async function signOut() { await createSupabaseClient().auth.signOut(); window.location.assign("/login"); }
+  async function signOut() { await fetch("/api/ngo/auth/logout", { method: "POST" }); router.replace("/login"); router.refresh(); }
   const active = nav.find(item => item.href === pathname)?.href ?? "/";
   return <div className={styles.app}>
     <header className={styles.topbar}>

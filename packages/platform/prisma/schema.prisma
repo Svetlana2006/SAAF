@@ -13,7 +13,7 @@ datasource db {
 // ── Citizen ──────────────────────────────────────────────────────────────────
 model Citizen {
   citizenId   String   @id @default(cuid()) @map("citizen_id")
-  supabaseUserId String? @unique @map("supabase_user_id")
+  supabaseUserId String? @map("supabase_user_id")
   clerkUserId String? @unique @map("clerk_user_id")
   name        String
   email       String   @unique
@@ -305,10 +305,12 @@ model MissionActivity {
   @@map("mission_activities")
 }
 
-// NGO portal identity maps a Supabase Auth user to an approved NGO.
+// NGO portal credentials and access are managed independently of Supabase Auth.
 model NgoMembership {
   membershipId  String   @id @default(cuid()) @map("membership_id")
-  supabaseUserId String   @map("supabase_user_id")
+  supabaseUserId String? @map("supabase_user_id")
+  loginEmail    String?  @unique(map: "ngo_memberships_login_email_key") @map("login_email")
+  passwordHash  String?  @map("password_hash")
   ngoId         String   @map("ngo_id")
   role          String   @default("field_staff") // owner/manager/field_staff
   isActive      Boolean  @default(true) @map("is_active")
@@ -317,8 +319,8 @@ model NgoMembership {
   ngo          Ngo                 @relation(fields: [ngoId], references: [ngoId])
   statusEvents MissionStatusEvent[]
 
-  @@unique([supabaseUserId, ngoId])
   @@index([supabaseUserId, isActive])
+  @@unique([supabaseUserId, ngoId], map: "ngo_memberships_supabase_user_id_ngo_id_key")
   @@map("ngo_memberships")
 }
 

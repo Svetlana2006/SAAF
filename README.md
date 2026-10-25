@@ -1,6 +1,6 @@
 ﻿# SAAF â€” Spot Â· Assess Â· Act Â· Follow-up
 
-SAAF is a monorepo of five Next.js portals and a shared API. The API owns persistence through Prisma and PostgreSQL; NGO sign-in uses Supabase Auth; report photos and NGO evidence use Cloudinary.
+SAAF is a monorepo of five Next.js portals and a shared API. The API owns persistence through Prisma and PostgreSQL; NGO sign-in uses administrator-issued local credentials; report photos and NGO evidence use Cloudinary.
 
 ## Prerequisites and install
 
@@ -24,9 +24,9 @@ Copy the relevant `.env.example` to `.env.local` for each app. Do not commit `.e
 
 The API also needs `SUPABASE_SERVICE_ROLE_KEY` in `apps/api/.env.local` to approve partner applications and provision trusted accounts. Keep it server-only; never put it in a portal `.env` file.
 
-The NGO, CSR, and Admin portals also need `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in their own `.env.local` files for browser sign-in and cookie refresh. These are public project configuration values; never put service-role keys in portal apps. Portal API URLs use `NEXT_PUBLIC_API_URL`. The Citizen and Entry portals can set `NEXT_PUBLIC_MAPTILER_KEY` when map tiles are enabled.
+The NGO portal uses an administrator-issued login and password with a signed, HTTP-only session; set the same random `NGO_SESSION_SECRET` in `apps/api/.env.local` and `apps/ngo-portal/.env.local`. It does not use Supabase Auth. CSR and Admin portals need `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in their own `.env.local` files for browser sign-in and cookie refresh. These are public project configuration values; never put service-role keys in portal apps. Portal API URLs use `NEXT_PUBLIC_API_URL`. The Citizen and Entry portals can set `NEXT_PUBLIC_MAPTILER_KEY` when map tiles are enabled.
 
-Citizen sign-in uses Clerk email verification codes. Set `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` in `apps/citizen-portal/.env`; set `CLERK_SECRET_KEY` and `CITIZEN_PORTAL_URL=http://localhost:3001` in `apps/api/.env`. Keep `CLERK_SECRET_KEY` server-only. Configure Clerk to allow email address and password sign-in, require email verification during sign-up, and use email verification codes. Use Clerk development keys on localhost and the matching live keys on your deployed domain. Verified Citizen identity/profile fields are synced by the API into the existing Supabase-hosted PostgreSQL `citizens` table through Prisma; Supabase Auth is not used for Citizen sign-in. NGO, CSR, and Admin integrations continue to use Supabase Auth.
+Citizen sign-in uses Clerk email verification codes. Set `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` in `apps/citizen-portal/.env`; set `CLERK_SECRET_KEY` and `CITIZEN_PORTAL_URL=http://localhost:3001` in `apps/api/.env`. Keep `CLERK_SECRET_KEY` server-only. Configure Clerk to allow email address and password sign-in, require email verification during sign-up, and use email verification codes. Use Clerk development keys on localhost and the matching live keys on your deployed domain. Verified Citizen identity/profile fields are synced by the API into the existing Supabase-hosted PostgreSQL `citizens` table through Prisma; Supabase Auth is not used for Citizen sign-in. CSR and Admin integrations continue to use Supabase Auth; NGO sign-in uses administrator-issued credentials.
 
 After pulling the Citizen identity change, apply the additive Prisma migration with `npx prisma migrate deploy --schema packages/platform/prisma/schema.prisma` from the repository root. It adds a nullable Clerk identity column and its unique index to `citizens`; it does not remove existing Supabase identity data or report records.
 
@@ -70,9 +70,9 @@ npm run db:push --workspace=@saaf/platform
 
 Do not point `db:push` or `db:seed` at a production or shared database. Review the checked-in baseline against any existing target database before marking it applied; deploy reviewed migrations through your normal database change process. `db:migrate` runs `prisma migrate dev` and is intended for local development. Never run seed scripts against a real database without reviewing their contents and target first.
 
-## Supabase access provisioning
+## Partner access provisioning
 
-NGOs and CSR organizations can submit applications from their portal sign-in pages. An administrator reviews these under Partner applications in the Admin portal. Approval creates the organization and membership, then Supabase invites the contact. Configure Supabase Auth email delivery and allow `http://localhost:3001/auth/callback`, `http://localhost:3002/auth/callback`, and `http://localhost:3003/auth/callback` (plus deployed equivalents) in Supabase Auth redirect settings. Set `NGO_PORTAL_URL`/`CSR_PORTAL_URL`, and set `SUPABASE_SERVICE_ROLE_KEY` only in `apps/api/.env` for partner approvals. CSR authorization requires trusted `app_metadata.role=csr` and an active organization membership. NGO authorization requires an active `NgoMembership` tied to the invited Supabase user. Citizen account profiles are synchronized into `citizens` after email confirmation. Only a signed-in Citizen's non-anonymous report is linked to that profile; anonymous and guest reports are not linked to a Citizen row.
+NGO access is granted through active NGO memberships with administrator-issued credentials and is independent of Supabase Auth. Set `NGO_SESSION_SECRET` in the API and NGO portal environments to the same random secret. CSR organizations may submit applications and receive Supabase invitations after administrator approval; set `SUPABASE_SERVICE_ROLE_KEY` only in `apps/api/.env.local` for partner approvals. CSR authorization requires trusted `app_metadata.role=csr` and an active organization membership. Citizen account profiles are synchronized into `citizens` after email confirmation. Only a signed-in Citizen's non-anonymous report is linked to that profile; anonymous and guest reports are not linked to a Citizen row.
 
 ## Start the apps
 

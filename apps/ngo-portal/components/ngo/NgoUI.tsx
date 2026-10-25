@@ -6,3 +6,13 @@ export function Metric({ label, value, detail, tone="green", icon="▣" }: { lab
 export function Button({ children, variant="primary", onClick, type="button" }: { children:React.ReactNode; variant?:"primary"|"soft"|"plain"|"danger"; onClick?:()=>void; type?:"button"|"submit" }) { return <button type={type} onClick={onClick} className={`${styles.button} ${styles[variant]}`}>{children}</button>; }
 export function Panel({ children, className="" }: { children:React.ReactNode; className?:string }) { return <section className={`${styles.panel} ${className}`}>{children}</section>; }
 export function Tag({ children, tone="green" }: { children:React.ReactNode; tone?:"green"|"red"|"blue"|"yellow"|"gray" }) { return <span className={`${styles.tag} ${styles[`tag_${tone}`]}`}>{children}</span>; }
+
+const dateTimeFormatter = new Intl.DateTimeFormat("en-IN", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: "Asia/Kolkata",
+});
+
+export function formatDateTime(value: string) {
+  return dateTimeFormatter.format(new Date(value));
+}
