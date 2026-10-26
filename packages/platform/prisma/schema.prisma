@@ -1,13 +1,11 @@
 generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = ["multiSchema"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
-  schemas   = ["public", "auth"]
 }
 
 // ── Citizen ──────────────────────────────────────────────────────────────────
@@ -281,11 +279,47 @@ model Evidence {
   locationLong Float?   @map("location_long")
   verified     Boolean  @default(false)
   verifiedBy   String?  @map("verified_by")
+  verificationStatus String @default("pending") @map("verification_status")
+  reviewedBy   String?  @map("reviewed_by")
+  reviewedAt   DateTime? @map("reviewed_at")
+  reviewReason String?  @map("review_reason")
   createdAt    DateTime @default(now()) @map("created_at")
 
   mission Mission @relation(fields: [missionId], references: [missionId])
 
   @@map("evidences")
+}
+
+model AdminAuditEvent {
+  auditId      String   @id @default(cuid()) @map("audit_id")
+  actorUserId  String   @map("actor_user_id")
+  actionType   String   @map("action_type")
+  recordType   String   @map("record_type")
+  recordId     String   @map("record_id")
+  previousValue Json?   @map("previous_value")
+  newValue     Json?    @map("new_value")
+  note         String?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([recordType, recordId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@map("admin_audit_events")
+}
+
+model Announcement {
+  announcementId String   @id @default(cuid()) @map("announcement_id")
+  title          String
+  message        String
+  audience       String   // all/citizen/ngo/csr
+  status         String   @default("draft") // draft/published/archived
+  createdBy      String   @map("created_by")
+  updatedBy      String   @map("updated_by")
+  publishedAt    DateTime? @map("published_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@index([status, audience, publishedAt])
+  @@map("announcements")
 }
 
 // ── Mission_Activity ─────────────────────────────────────────────────────────
@@ -434,6 +468,7 @@ model CsrOrganization {
   email             String   @unique
   phone             String
   registrationNumber String? @map("registration_number")
+  approvedFundingBudget Float? @map("approved_funding_budget")
   createdAt         DateTime @default(now()) @map("created_at")
 
   memberships CsrMembership[]
@@ -464,6 +499,7 @@ model CsrGrant {
   amount            Float
   status            String   @default("committed") // committed/released/cancelled
   notes             String?
+  authorizedBy      String?  @map("authorized_by")
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
 

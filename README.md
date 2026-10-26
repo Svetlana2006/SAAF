@@ -34,7 +34,7 @@ The example files contain names and placeholders only. Use separate credentials 
 
 ## Database setup
 
-The Prisma schema is `packages/platform/prisma/schema.prisma`. The migration history starts with `0_existing_schema`, a baseline of the pre-existing SAAF tables, followed by additive migrations for report image records, a unique mission-volunteer assignment index, partner applications, and CSR organizations and grants.
+The Prisma schema is `packages/platform/prisma/schema.prisma`. The migration history starts with `0_existing_schema`, a baseline of the pre-existing SAAF tables, followed by additive migrations for report image records, a unique mission-volunteer assignment index, partner applications, CSR organizations and grants, CSR grant authorization metadata, and the approved CSR commitment ceiling.
 
 For a **fresh, empty database**, set `DATABASE_URL` and `DIRECT_URL`, then deploy all migrations:
 
@@ -72,7 +72,15 @@ Do not point `db:push` or `db:seed` at a production or shared database. Review t
 
 ## Partner access provisioning
 
-NGO access is granted through active NGO memberships with administrator-issued credentials and is independent of Supabase Auth. Set `NGO_SESSION_SECRET` in the API and NGO portal environments to the same random secret. CSR organizations may submit applications and receive Supabase invitations after administrator approval; set `SUPABASE_SERVICE_ROLE_KEY` only in `apps/api/.env.local` for partner approvals. CSR authorization requires trusted `app_metadata.role=csr` and an active organization membership. Citizen account profiles are synchronized into `citizens` after email confirmation. Only a signed-in Citizen's non-anonymous report is linked to that profile; anonymous and guest reports are not linked to a Citizen row.
+NGO access is granted through active NGO memberships with administrator-issued credentials and is independent of Supabase Auth. Set `NGO_SESSION_SECRET` in the API and NGO portal environments to the same random secret. CSR organizations may submit applications and receive Supabase invitations after administrator approval; the owner can also provision Admin or CSR accounts directly without sending email. CSR authorization requires trusted `app_metadata.role=csr` and an active organization membership. Citizen account profiles are synchronized into `citizens` after email confirmation. Only a signed-in Citizen's non-anonymous report is linked to that profile; anonymous and guest reports are not linked to a Citizen row.
+
+To create an Admin or CSR login manually, put the server-only Supabase URL and service-role key plus database URLs in `apps/api/.env`, open PowerShell at the repository root, and run:
+
+```powershell
+npm.cmd run provision:partner
+```
+
+Choose `admin` or `csr`, enter the login email, and type a password when prompted (the terminal masks it; it is not sent by email). CSR provisioning also asks for organization details and the approved commitment budget, then creates the required organization and owner membership. Existing Auth users can be assigned and given a password. The script refuses to change an account that already has a different trusted role. It does not add public registration or reset flows. Keep the service-role key only in `apps/api/.env`; never copy it to any portal environment. After login, use `http://localhost:3004/login` for Admin or `http://localhost:3003/login` for CSR.
 
 ## Start the apps
 
@@ -90,7 +98,7 @@ npm run dev:api
 
 `npm run dev` keeps the remaining apps running if one app fails to start; check that app's prefixed output and port while the others remain available. Press Ctrl+C to stop the full stack.
 
-CSR dashboard, mission commitments, and impact screens read organization-scoped mission, grant, and impact records from the API. CSR commitments are database records only; payments, escrow, and disbursement are not implemented. Other Admin screens remain demonstration interfaces; partner applications are live.
+CSR authentication uses Supabase Auth; the API reads the Supabase-hosted PostgreSQL database through the repository's Prisma data layer. CSR dashboard, funded missions, allocation records, and impact reports are scoped to the active authenticated organization. CSR approval requires an administrator-set total commitment ceiling. Commitments are internal records only; payments, escrow, and disbursement are not implemented. New commitments are limited by both remaining organization budget and remaining `Mission.estimatedCost`. Thirty-day follow-up is based on repeat reports at the same location after a recorded mission completion event; it is not a cleanliness certification. Other Admin screens remain demonstration interfaces; partner applications are live.
 
 ## Checks
 
@@ -111,3 +119,4 @@ The citizen dashboard shows public community reports because anonymous reports c
 The API unit tests exercise trusted-role decisions, organization query scoping, input validation, report image data mapping, mission status transitions, and slot capacity. They do not run database-backed routes; a separate integration suite against an isolated test database is needed for end-to-end route authorization coverage. The public report and volunteer write limits are process-local. A multi-instance deployment needs a shared rate-limit store such as Redis/Upstash and appropriate proxy IP configuration.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for app ownership and routes.
+See [ADMIN_WORKFLOW_MAP.md](ADMIN_WORKFLOW_MAP.md) for Admin APIs, the additive migration, known schema limits, and manual verification steps.

@@ -2,6 +2,7 @@
 
 import { FormEvent, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@saaf/platform/supabase/client";
 import styles from "./NgoAccess.module.css";
 
 function subscribeToLocation(callback: () => void) {
@@ -27,21 +28,18 @@ export default function NgoAccessPage() {
         ? "The NGO access database is unavailable. Please contact your SAAF administrator."
         : reason === "auth-config"
           ? "NGO sign-in is not configured. Please contact your SAAF administrator."
+      : reason === "signed-out"
+        ? "You have signed out."
         : "";
 
   async function signIn(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setError("");
     try {
-      const response = await fetch("/api/ngo/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error ?? "Could not sign in.");
+      const { error: authError } = await createClient().auth.signInWithPassword({ email, password });
+      if (authError) throw authError;
       router.replace("/"); router.refresh();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not sign in. Please try again.");
+    } catch {
+      setError("Unable to sign in. Check your credentials and contact the SAAF administrator if access is needed.");
     } finally { setBusy(false); }
   }
 

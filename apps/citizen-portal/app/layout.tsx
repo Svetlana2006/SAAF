@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
+import CitizenAnnouncementFeed from "@/components/CitizenAnnouncementFeed";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -13,7 +14,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
 
   return <html lang="en" suppressHydrationWarning><body>
     {authConfigured ? (
-      <ClerkProvider publishableKey={publishableKey}>{children}</ClerkProvider>
+      <ClerkProvider publishableKey={publishableKey}><CitizenAnnouncementFeed/>{children}</ClerkProvider>
     ) : (
       children
     )}

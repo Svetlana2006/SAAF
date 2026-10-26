@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { createClient } from "@saaf/platform/supabase/client";
 import styles from "./NgoShell.module.css";
 
 const nav = [
@@ -17,7 +18,7 @@ export default function NgoShell({ children }: Readonly<{ children: React.ReactN
   const router = useRouter();
   const [profile, setProfile] = useState<{ user?: { email?: string }; ngo?: { name?: string }; membership?: { role?: string } } | null>(null);
   useEffect(() => { fetch("/api/ngo/me").then(r => r.ok ? r.json() : null).then(setProfile).catch(() => setProfile(null)); }, []);
-  async function signOut() { await fetch("/api/ngo/auth/logout", { method: "POST" }); router.replace("/login"); router.refresh(); }
+  async function signOut() { await createClient().auth.signOut(); router.replace("/login?reason=signed-out"); router.refresh(); }
   const active = nav.find(item => item.href === pathname)?.href ?? "/";
   return <div className={styles.app}>
     <header className={styles.topbar}>

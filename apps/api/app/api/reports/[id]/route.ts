@@ -1,5 +1,5 @@
 /**
- * GET /api/reports/[id]  — fetch a single report with its location and citizen info
+ * GET /api/reports/[id] — fetch a single report for Admin review without citizen PII.
  */
 import { NextRequest } from "next/server";
 import { prisma } from "@saaf/platform/prisma";
@@ -19,11 +19,11 @@ export async function GET(
     const report = await prisma.report.findFirst({
       where: { reportId: id },
       include: {
-        citizen: {
-          select: { name: true, email: true, phone: true, isAnonymous: true, role: true },
-        },
         location: true,
         images: { select: { imageId: true, photoUrl: true, cloudinaryId: true, purpose: true, uploadedAt: true } },
+        missions: { select: { missionId: true, status: true, scheduledDate: true, ngo: { select: { name: true } } } },
+        ngoOffers: { select: { offerId: true, status: true, offeredAt: true, respondedAt: true, ngo: { select: { name: true } } } },
+        citizenConfirmations: { select: { status: true, comment: true, photoUrl: true, createdAt: true } },
       },
     });
 
@@ -37,16 +37,11 @@ export async function GET(
       status: report.status,
       photoUrl: report.photoUrl,
       images: report.images,
-      citizen: report.isAnonymous
-        ? null
-        : report.citizen
-        ? {
-            name: report.citizen.name,
-            email: report.citizen.email,
-            phone: report.citizen.phone,
-            role: report.citizen.role,
-          }
-        : null,
+      isAnonymous: report.isAnonymous,
+      citizen: null,
+      missions: report.missions,
+      ngoOffers: report.ngoOffers,
+      citizenFeedback: report.citizenConfirmations.map(({ status, comment, photoUrl, createdAt }) => ({ status, comment, photoUrl, createdAt })),
       location: report.location
         ? {
             nameArea: report.location.nameArea,

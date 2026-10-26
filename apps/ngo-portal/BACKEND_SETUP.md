@@ -2,26 +2,29 @@
 
 ## Sign-in model
 
-The NGO portal uses an administrator-issued work email and password. NGO sign-in does not use Supabase Auth or require invitation email delivery. The API stores a salted scrypt password hash on an active `NgoMembership`; the password is never stored in plaintext. Sessions are signed, HTTP-only, and expire after eight hours. The API rechecks the active membership on protected requests, so disabling the membership revokes access.
+NGO sign-in uses the same Supabase Auth system as CSR and Admin. The trusted `app_metadata.role` must be `ngo`, and the account must have an active `NgoMembership` linked by `supabaseUserId`. The NGO organization and membership are created or linked by an administrator; there is no public sign-up. Passwords are managed by Supabase Auth and are not stored in application tables.
 
-## Configure the session secret
+## Required environment
 
-Set `NGO_SESSION_SECRET` to the same randomly generated value in:
+Configure `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` for the NGO portal and API, using the existing Supabase project values. Configure `SUPABASE_SERVICE_ROLE_KEY` only in `apps/api/.env` for server-side or owner-run account provisioning. Never expose that key with a `NEXT_PUBLIC_` prefix.
 
-- `apps/api/.env.local`
-- `apps/ngo-portal/.env.local`
+## Provision an NGO from the command line
 
-Use at least 32 random characters and keep the value server-side. Do not add a `NEXT_PUBLIC_` prefix or commit either local environment file.
+From the repository root, run:
 
-## Grant or revoke NGO access
+```powershell
+npm run provision:partner
+```
 
-Create an NGO and an active `NgoMembership` through a trusted administrator workflow or reviewed database operation. `supabaseUserId` may be null. Set the membership's `loginEmail` to the granted work login and `passwordHash` to a hash produced with the shared `hashNgoPassword` utility. Keep `isActive` true to grant access; set it false to revoke access. Do not store plaintext passwords or grant an account by editing client-side data.
+Choose `ngo`, enter the organization's login email and details, then enter and confirm a password when prompted. Password input is masked. The command creates or links the NGO row, Supabase Auth account, and active owner membership without sending an email. Open `http://localhost:3002/login` to sign in.
 
-The account is linked to exactly one NGO membership by the login email. Every NGO API request is scoped to that membership's `ngoId`.
+The same command also supports existing Admin and CSR provisioning options. Provisioning refuses to change an existing account's different trusted role or link an account already attached to another NGO.
+
+To revoke NGO access, set that membership's `isActive` to false through an authorized administrative operation. The API checks the active membership on protected requests.
 
 ## Database and local startup
 
-Apply reviewed Prisma migrations to create the membership table and password-auth columns:
+Apply the existing Prisma migrations when setting up the database:
 
 ```powershell
 npx prisma migrate deploy --schema packages/platform/prisma/schema.prisma

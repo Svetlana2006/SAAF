@@ -16,6 +16,7 @@
     "dev:csr": "npm run dev --workspace=@saaf/csr-portal",
     "dev:admin": "npm run dev --workspace=@saaf/admin-portal",
     "dev:api": "npm run dev --workspace=@saaf/api",
+    "provision:partner": "node packages/platform/scripts/provision-partner.cjs",
     "build": "npm run build --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present"
   },
