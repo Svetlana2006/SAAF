@@ -1,0 +1,38 @@
+services:
+  - type: web
+    name: saaf-aprsv-api
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build --workspace=@saaf/api
+    startCommand: npm run start --workspace=@saaf/api
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+        sync: false
+      - key: CITIZEN_PORTAL_URL
+        sync: false
+      - key: NGO_PORTAL_URL
+        sync: false
+      - key: CSR_PORTAL_URL
+        sync: false
+      - key: ADMIN_PORTAL_URL
+        sync: false
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: NGO_SESSION_SECRET
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false

@@ -70,6 +70,17 @@ npm run db:push --workspace=@saaf/platform
 
 Do not point `db:push` or `db:seed` at a production or shared database. Review the checked-in baseline against any existing target database before marking it applied; deploy reviewed migrations through your normal database change process. `db:migrate` runs `prisma migrate dev` and is intended for local development. Never run seed scripts against a real database without reviewing their contents and target first.
 
+## Free deployment: Vercel portals and Render API
+
+Vercel Hobby allows at most 12 Serverless Functions in one deployment. The SAAF API has more than 12 route handlers, so deploying it as a Vercel service exceeds that limit. The `render.yaml` Blueprint runs the API as one Node web service on Render Free; Vercel continues to serve the five portals.
+
+1. In Render, create a Blueprint from this repository and select `render.yaml`. Enter the production values when Render prompts for the `sync: false` environment variables. Copy the server-only values from your local API environment directly into Render; do not paste them into chat or commit them. Set the four `*_PORTAL_URL` values to the Vercel production origin (scheme and hostname only, with no path). `NGO_SESSION_SECRET` must match the value configured for the NGO portal.
+2. Wait for the Render service to finish deploying and copy its `onrender.com` URL.
+3. In the Vercel project settings, set `NEXT_PUBLIC_API_URL` to that Render URL (for example, `https://your-service.onrender.com`, with no trailing slash) for Production, Preview, and Development as appropriate. Redeploy the Vercel project so the Entry portal's API rewrite targets Render.
+4. Confirm the production database has the checked-in Prisma migrations applied before using the app. Do not run `db:push` against production.
+
+Render Free services can sleep when idle and may take time to wake up. Keep `SUPABASE_SERVICE_ROLE_KEY`, `CLERK_SECRET_KEY`, database credentials, Cloudinary secrets, and `NGO_SESSION_SECRET` only in Render's server-side environment. `npm run provision:partner` remains a local command; run it from your computer with the production database and Supabase credentials loaded in `apps/api/.env`, and never add those credentials to Vercel portal environment variables.
+
 ## Partner access provisioning
 
 NGO access is granted through active NGO memberships with administrator-issued credentials and is independent of Supabase Auth. Set `NGO_SESSION_SECRET` in the API and NGO portal environments to the same random secret. CSR organizations may submit applications and receive Supabase invitations after administrator approval; the owner can also provision Admin or CSR accounts directly without sending email. CSR authorization requires trusted `app_metadata.role=csr` and an active organization membership. Citizen account profiles are synchronized into `citizens` after email confirmation. Only a signed-in Citizen's non-anonymous report is linked to that profile; anonymous and guest reports are not linked to a Citizen row.

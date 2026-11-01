@@ -5,10 +5,6 @@
       "root": "apps/entry-portal",
       "framework": "nextjs"
     },
-    "api": {
-      "root": "apps/api",
-      "framework": "nextjs"
-    },
     "citizen-portal": {
       "root": "apps/citizen-portal",
       "framework": "nextjs"
@@ -30,13 +26,13 @@
     {
       "source": "/api",
       "destination": {
-        "service": "api"
+        "service": "entry-portal"
       }
     },
     {
       "source": "/api/(.*)",
       "destination": {
-        "service": "api"
+        "service": "entry-portal"
       }
     },
     {
