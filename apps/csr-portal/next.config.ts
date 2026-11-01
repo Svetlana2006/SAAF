@@ -21,7 +21,6 @@ const SECURITY_HEADERS = [
 ];
 
 const nextConfig: NextConfig = {
-  ...(process.env.VERCEL ? { basePath: "/csr" } : {}),
   agentRules: false,
   poweredByHeader: false,
   productionBrowserSourceMaps: false,

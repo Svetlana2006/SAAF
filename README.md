@@ -72,14 +72,30 @@ Do not point `db:push` or `db:seed` at a production or shared database. Review t
 
 ## Free deployment: Vercel portals and Render API
 
-Vercel Hobby allows at most 12 Serverless Functions in one deployment. The SAAF API has more than 12 route handlers, so deploying it as a Vercel service exceeds that limit. The `render.yaml` Blueprint runs the API as one Node web service on Render Free; Vercel continues to serve the five portals.
+Vercel Hobby allows at most 12 Serverless Functions per deployment. Deploy each portal as its own Vercel project and keep the API on Render so no single Vercel deployment combines every portal's functions.
 
-1. In Render, create a Blueprint from this repository and select `render.yaml`. Enter the production values when Render prompts for the `sync: false` environment variables. Copy the server-only values from your local API environment directly into Render; do not paste them into chat or commit them. Set the four `*_PORTAL_URL` values to the Vercel production origin (scheme and hostname only, with no path). `NGO_SESSION_SECRET` must match the value configured for the NGO portal.
-2. Wait for the Render service to finish deploying and copy its `onrender.com` URL.
-3. In the Vercel project settings, set `NEXT_PUBLIC_API_URL` to that Render URL (for example, `https://your-service.onrender.com`, with no trailing slash) for Production, Preview, and Development as appropriate. Redeploy the Vercel project so the Entry portal's API rewrite targets Render.
-4. Confirm the production database has the checked-in Prisma migrations applied before using the app. Do not run `db:push` against production.
+Create five Vercel projects from this repository, with the corresponding **Root Directory**:
 
-Render Free services can sleep when idle and may take time to wake up. Keep `SUPABASE_SERVICE_ROLE_KEY`, `CLERK_SECRET_KEY`, database credentials, Cloudinary secrets, and `NGO_SESSION_SECRET` only in Render's server-side environment. `npm run provision:partner` remains a local command; run it from your computer with the production database and Supabase credentials loaded in `apps/api/.env`, and never add those credentials to Vercel portal environment variables.
+| Project | Root Directory |
+| --- | --- |
+| `saaf-aprsv` (Entry) | `apps/entry-portal` |
+| `saaf-aprsv-citizen` | `apps/citizen-portal` |
+| `saaf-aprsv-ngo` | `apps/ngo-portal` |
+| `saaf-aprsv-csr` | `apps/csr-portal` |
+| `saaf-aprsv-admin` | `apps/admin-portal` |
+
+For each project, enable **Include source files outside of the Root Directory** so the npm workspaces can use `packages/platform`, `packages/ui`, and the repository-root lockfile. Use the repository root `package-lock.json`/npm workspace install and the app's default Next.js build command.
+
+After each project receives its production `*.vercel.app` domain:
+
+1. Add `NEXT_PUBLIC_API_URL=https://saaf-aprsv-api.onrender.com` to each Vercel project for Production and Preview, then redeploy.
+2. On the Entry project, add `NEXT_PUBLIC_CITIZEN_PORTAL_URL`, `NEXT_PUBLIC_NGO_PORTAL_URL`, `NEXT_PUBLIC_CSR_PORTAL_URL`, and `NEXT_PUBLIC_ADMIN_PORTAL_URL`, each set to that portal's production origin (scheme and hostname, no trailing slash).
+3. In Render, set `CITIZEN_PORTAL_URL`, `NGO_PORTAL_URL`, `CSR_PORTAL_URL`, and `ADMIN_PORTAL_URL` to those same portal origins. Keep the Supabase, database, Clerk, Cloudinary, and service-role credentials only in Render. The database connection string must use the production database with the deployed migrations applied; do not run `db:push` against it.
+4. Add each portal domain to the allowed redirect/callback URLs in the corresponding Supabase and Clerk settings. Keep NGO's `NGO_SESSION_SECRET` in the Render environment only if the API requires it; never expose it with a `NEXT_PUBLIC_` prefix.
+
+The Entry site's public role links use the four explicit portal URL variables; its `/api/*` rewrite and each portal's `/api/*` rewrite use `NEXT_PUBLIC_API_URL`. `npm run provision:partner` remains a local command: run it from your computer with the production database and Supabase credentials loaded in `apps/api/.env`. Never add those server secrets to Vercel.
+
+Render Free services can sleep when idle and may take time to wake up. The five-project split avoids combining all portal functions into one Hobby deployment; it does not change Render's cold-start behavior.
 
 ## Partner access provisioning
 

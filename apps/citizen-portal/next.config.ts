@@ -23,9 +23,8 @@ const SECURITY_HEADERS = [
 ];
 
 const nextConfig: NextConfig = {
-  ...(process.env.VERCEL ? { basePath: "/citizen" } : {}),
   env: {
-    NEXT_PUBLIC_APP_BASE_PATH: process.env.VERCEL ? "/citizen" : "",
+    NEXT_PUBLIC_APP_BASE_PATH: "",
   },
   agentRules: false,
   poweredByHeader: false,
