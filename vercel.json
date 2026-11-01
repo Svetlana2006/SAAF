@@ -1,0 +1,97 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "entry-portal": {
+      "root": "apps/entry-portal",
+      "framework": "nextjs"
+    },
+    "api": {
+      "root": "apps/api",
+      "framework": "nextjs"
+    },
+    "citizen-portal": {
+      "root": "apps/citizen-portal",
+      "framework": "nextjs"
+    },
+    "ngo-portal": {
+      "root": "apps/ngo-portal",
+      "framework": "nextjs"
+    },
+    "csr-portal": {
+      "root": "apps/csr-portal",
+      "framework": "nextjs"
+    },
+    "admin-portal": {
+      "root": "apps/admin-portal",
+      "framework": "nextjs"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api",
+      "destination": {
+        "service": "api"
+      }
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": {
+        "service": "api"
+      }
+    },
+    {
+      "source": "/admin",
+      "destination": {
+        "service": "admin-portal"
+      }
+    },
+    {
+      "source": "/admin/(.*)",
+      "destination": {
+        "service": "admin-portal"
+      }
+    },
+    {
+      "source": "/citizen",
+      "destination": {
+        "service": "citizen-portal"
+      }
+    },
+    {
+      "source": "/citizen/(.*)",
+      "destination": {
+        "service": "citizen-portal"
+      }
+    },
+    {
+      "source": "/ngo",
+      "destination": {
+        "service": "ngo-portal"
+      }
+    },
+    {
+      "source": "/ngo/(.*)",
+      "destination": {
+        "service": "ngo-portal"
+      }
+    },
+    {
+      "source": "/csr",
+      "destination": {
+        "service": "csr-portal"
+      }
+    },
+    {
+      "source": "/csr/(.*)",
+      "destination": {
+        "service": "csr-portal"
+      }
+    },
+    {
+      "source": "/(.*)",
+      "destination": {
+        "service": "entry-portal"
+      }
+    }
+  ]
+}

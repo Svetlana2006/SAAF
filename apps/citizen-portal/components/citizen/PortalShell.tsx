@@ -20,7 +20,7 @@ export function PortalHeader({ active = "Hub Overview", compact = false }: { act
       </div>
       <header className={styles.header}>
         <Link href="/" className={styles.brand} aria-label="SAAF Citizen Hub home">
-          <span className={styles.brandIcon}><Image src="/citizen/saaf-logo.png" alt="" width={23} height={23} /></span><span><b>SAAF</b><small>{compact ? "CIVIC CLEANLINESS" : "CITIZEN HUB"}</small></span>
+          <span className={styles.brandIcon}><Image src={`${process.env.NEXT_PUBLIC_APP_BASE_PATH ?? ""}/citizen/saaf-logo.png`} alt="" width={23} height={23} /></span><span><b>SAAF</b><small>{compact ? "CIVIC CLEANLINESS" : "CITIZEN HUB"}</small></span>
         </Link>
         <nav className={styles.nav} aria-label="Citizen portal navigation">
           {links.map(([label, href]) => <Link key={label} href={href} className={active === label ? styles.active : ""}>{label}</Link>)}

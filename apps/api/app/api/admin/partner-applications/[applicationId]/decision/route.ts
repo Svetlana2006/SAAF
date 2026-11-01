@@ -18,7 +18,12 @@ async function findOrInviteUser(email: string, fullName: string, portal: "ngo" |
   const portalUrl = portal === "ngo"
     ? (process.env.NGO_PORTAL_URL ?? "http://localhost:3002")
     : (process.env.CSR_PORTAL_URL ?? "http://localhost:3003");
-  const { data, error } = await admin.auth.admin.inviteUserByEmail(email, { data: { full_name: fullName }, redirectTo: new URL("/auth/callback?next=%2Fauth%2Fset-password", portalUrl).toString() });
+  const portalPath = portal === "ngo" ? "/ngo" : "/csr";
+  const nextPath = `${portalPath}/auth/set-password`;
+  const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
+    data: { full_name: fullName },
+    redirectTo: new URL(`${portalPath}/auth/callback?next=${encodeURIComponent(nextPath)}`, portalUrl).toString(),
+  });
   if (error || !data.user) throw new Error("Could not send an account invitation. Check Supabase Auth email settings and retry.");
   return { admin, user: data.user, invited: true };
 }

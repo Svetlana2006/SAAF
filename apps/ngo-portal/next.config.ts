@@ -21,6 +21,7 @@ const SECURITY_HEADERS = [
 ];
 
 const nextConfig: NextConfig = {
+  ...(process.env.VERCEL ? { basePath: "/ngo" } : {}),
   agentRules: false,
   poweredByHeader: false,
   productionBrowserSourceMaps: false,

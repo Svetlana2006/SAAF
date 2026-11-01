@@ -4,8 +4,12 @@ import { createClient } from "@saaf/platform/supabase/server";
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = request.nextUrl;
-  const next = searchParams.get("next") ?? "/auth/set-password";
-  const destination = next.startsWith("/") && !next.startsWith("//") ? next : "/auth/set-password";
+  const basePath = request.nextUrl.basePath;
+  const defaultDestination = `${basePath}/auth/set-password`;
+  const next = searchParams.get("next") ?? defaultDestination;
+  const destination = next.startsWith("/") && !next.startsWith("//")
+    ? next === basePath || next.startsWith(`${basePath}/`) ? next : `${basePath}${next}`
+    : defaultDestination;
   try {
     const supabase = await createClient();
     const code = searchParams.get("code");
@@ -18,9 +22,9 @@ export async function GET(request: NextRequest) {
       : tokenHash && type
         ? await supabase.auth.verifyOtp({ token_hash: tokenHash, type })
         : { error: new Error("Invitation link is incomplete.") };
-    if (result.error) return NextResponse.redirect(new URL("/login?reason=invite", origin));
+    if (result.error) return NextResponse.redirect(new URL(`${basePath}/login?reason=invite`, origin));
     return NextResponse.redirect(new URL(destination, origin));
   } catch {
-    return NextResponse.redirect(new URL("/login?reason=invite", origin));
+    return NextResponse.redirect(new URL(`${basePath}/login?reason=invite`, origin));
   }
 }

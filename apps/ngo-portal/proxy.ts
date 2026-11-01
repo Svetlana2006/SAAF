@@ -11,7 +11,12 @@ function copyCookies(source: NextResponse, target: NextResponse) {
 }
 
 export async function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const basePath = request.nextUrl.basePath;
+  const pathname = request.nextUrl.pathname.startsWith(`${basePath}/`)
+    ? request.nextUrl.pathname.slice(basePath.length)
+    : request.nextUrl.pathname === basePath
+      ? "/"
+      : request.nextUrl.pathname;
   if (
     PUBLIC_PATHS.has(pathname) ||
     pathname.startsWith("/_next/") ||
@@ -26,7 +31,7 @@ export async function proxy(request: NextRequest) {
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "NGO sign-in is not configured." }, { status: 503 });
     }
-    return NextResponse.redirect(new URL("/login?reason=auth-config", request.url));
+    return NextResponse.redirect(new URL(`${basePath}/login?reason=auth-config`, request.url));
   }
 
   let response = NextResponse.next({ request });
@@ -50,7 +55,7 @@ export async function proxy(request: NextRequest) {
     if (pathname.startsWith("/api/")) {
       return copyCookies(response, NextResponse.json({ error: "Sign in to continue." }, { status: 401 }));
     }
-    const loginUrl = new URL("/login", request.url);
+    const loginUrl = new URL(`${basePath}/login`, request.url);
     loginUrl.searchParams.set("reason", "session");
     return copyCookies(response, NextResponse.redirect(loginUrl));
   }
@@ -59,7 +64,7 @@ export async function proxy(request: NextRequest) {
     if (pathname.startsWith("/api/")) {
       return copyCookies(response, NextResponse.json({ error: "NGO access is required." }, { status: 403 }));
     }
-    const loginUrl = new URL("/login?reason=membership", request.url);
+    const loginUrl = new URL(`${basePath}/login?reason=membership`, request.url);
     return copyCookies(response, NextResponse.redirect(loginUrl));
   }
 

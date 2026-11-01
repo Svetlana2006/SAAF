@@ -23,6 +23,10 @@ const SECURITY_HEADERS = [
 ];
 
 const nextConfig: NextConfig = {
+  ...(process.env.VERCEL ? { basePath: "/citizen" } : {}),
+  env: {
+    NEXT_PUBLIC_APP_BASE_PATH: process.env.VERCEL ? "/citizen" : "",
+  },
   agentRules: false,
   poweredByHeader: false,
   productionBrowserSourceMaps: false,
@@ -37,4 +41,3 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
-

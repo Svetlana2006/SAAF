@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { csrCommittableMissionStatuses } from "@saaf/platform/csr-policy";
 import { Button, Header, Metric, Panel, Chip } from "@saaf/ui/institutional/InstitutionUI";
 
@@ -24,7 +25,7 @@ export function CsrDashboard() {
   const refresh = useCallback(async () => { setLoading(true); try { setData(await fetchJson<Dashboard>("/api/csr/dashboard")); setError(""); } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not load dashboard."); } finally { setLoading(false); } }, []);
   useEffect(() => { void Promise.resolve().then(refresh); }, [refresh]);
   return <><Header eyebrow="CSR partner workspace" title={data?.organization.name ?? "CSR dashboard"} description="Organization-scoped commitments, mission activity, and submitted impact records." actions={<Button variant="plain" onClick={() => void refresh()}>Refresh</Button>} />
-    {error && <Panel><p role="alert">{error} {error.includes("session expired") && <a href="/login">Sign in</a>}</p></Panel>}{loading && <p role="status">Loading organization records…</p>}
+    {error && <Panel><p role="alert">{error} {error.includes("session expired") && <Link href="/login">Sign in</Link>}</p></Panel>}{loading && <p role="status">Loading organization records…</p>}
     {data && <><p>{data.reportingPeriod}</p><div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
       <Metric label="Committed" value={money(data.metrics.committedAmount)} detail="Active internal commitment records; no payment" />
       <Metric label="Allocated" value={money(data.metrics.allocatedAmount)} detail="Recorded allocations; same ledger as commitments" tone="blue" />
@@ -36,7 +37,7 @@ export function CsrDashboard() {
       <Metric label="Verified impact reports" value={String(data.metrics.verifiedImpactReports)} detail="Impact report status: verified" tone="mint" />
       <Metric label="Waste removed (reported)" value={`${data.metrics.reportedWasteRemovedKg.toLocaleString("en-IN")} kg`} detail="Submitted impact reports; not all human-verified" tone="blue" />
       <Metric label="Volunteer hours (reported)" value={data.metrics.reportedVolunteerHours.toLocaleString("en-IN")} detail="Submitted impact reports; not all human-verified" tone="mint" />
-    </div>{data.metrics.overAllocatedAmount != null && data.metrics.overAllocatedAmount > 0 && <Panel><p role="alert">Recorded commitments exceed the approved budget by {money(data.metrics.overAllocatedAmount)}. New commitments are blocked until an administrator updates the approved budget or recorded commitments are adjusted.</p></Panel>}<Panel><b>30-day repeat-report follow-up</b><p>{data.followUp.eligibleMissions} completed mission(s) have a full 30-day observation window. {data.followUp.repeatReports} reports were recorded at their locations during follow-up; {data.followUp.missionsWithNoRecordedRepeatReports} had no repeat report recorded. This is not a cleanliness certification.</p><small>Completion timestamps unavailable for {data.followUp.completionTimestampsUnavailable} completed mission(s).</small></Panel>{data.metrics.grantRecords === 0 && <Panel><p>Your organization has no commitments recorded. Review eligible mission opportunities on <a href="/missions">Missions & commitments</a>.</p></Panel>}</>}
+    </div>{data.metrics.overAllocatedAmount != null && data.metrics.overAllocatedAmount > 0 && <Panel><p role="alert">Recorded commitments exceed the approved budget by {money(data.metrics.overAllocatedAmount)}. New commitments are blocked until an administrator updates the approved budget or recorded commitments are adjusted.</p></Panel>}<Panel><b>30-day repeat-report follow-up</b><p>{data.followUp.eligibleMissions} completed mission(s) have a full 30-day observation window. {data.followUp.repeatReports} reports were recorded at their locations during follow-up; {data.followUp.missionsWithNoRecordedRepeatReports} had no repeat report recorded. This is not a cleanliness certification.</p><small>Completion timestamps unavailable for {data.followUp.completionTimestampsUnavailable} completed mission(s).</small></Panel>{data.metrics.grantRecords === 0 && <Panel><p>Your organization has no commitments recorded. Review eligible mission opportunities on <Link href="/missions">Missions & commitments</Link>.</p></Panel>}</>}
   </>;
 }
 
@@ -62,7 +63,7 @@ export function CsrMissions() {
     finally { setBusy(""); }
   }
   return <><Header eyebrow="CSR partner workspace" title="Funded missions & opportunities" description="Review mission budgets and record organization commitments. All funding records are internal; the portal does not transfer money." actions={<Button variant="plain" onClick={() => void load()}>Refresh</Button>} />
-    {notice && <Panel><p role="status">{notice}</p></Panel>}{error && <Panel><p role="alert">{error} {error.includes("session expired") && <a href="/login">Sign in</a>}</p></Panel>}
+    {notice && <Panel><p role="status">{notice}</p></Panel>}{error && <Panel><p role="alert">{error} {error.includes("session expired") && <Link href="/login">Sign in</Link>}</p></Panel>}
     <Panel><div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
       <label>View<select value={view} onChange={e => { setView(e.target.value); setPage(0); }}><option value="all">Eligible and supported</option><option value="available">Available</option><option value="supported">Supported</option></select></label>
       <label>Search<input value={q} onChange={e => { setQ(e.target.value); setPage(0); }} placeholder="Mission, location, NGO" /></label>
@@ -102,7 +103,7 @@ export function CsrImpact() {
   const refresh = useCallback(async () => { setLoading(true); try { const result = await fetchJson<{ reports: Impact[]; followUp: typeof followUp }>(`/api/csr/impact${query ? `?${query}` : ""}`); setReports(result.reports); setFollowUp(result.followUp); setError(""); } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not load impact records."); } finally { setLoading(false); } }, [query]);
   useEffect(() => { void Promise.resolve().then(refresh); }, [refresh]);
   return <><Header eyebrow="CSR partner workspace" title="Impact & follow-up" description="Submitted impact records for supported missions. Reported metrics are distinguished from verified records." actions={<><Button variant="plain" onClick={() => void refresh()}>Refresh</Button><a href={`/api/csr/impact${query ? `?${query}&` : "?"}format=csv`} download>Export CSV</a></>} />
-    {error && <Panel><p role="alert">{error} {error.includes("session expired") && <a href="/login">Sign in</a>}</p></Panel>}{loading && <p role="status">Loading impact data…</p>}
+    {error && <Panel><p role="alert">{error} {error.includes("session expired") && <Link href="/login">Sign in</Link>}</p></Panel>}{loading && <p role="status">Loading impact data…</p>}
     <Panel><div className="grid grid-cols-2 gap-2 lg:grid-cols-4"><label>Reported from<input type="date" value={from} onChange={e => setFrom(e.target.value)} /></label><label>Reported to<input type="date" value={to} onChange={e => setTo(e.target.value)} /></label><label>Location<input value={location} onChange={e => setLocation(e.target.value)} /></label><label>Category<input value={category} onChange={e => setCategory(e.target.value)} /></label></div><small>Filters apply to impact report creation dates, location, and linked report category. The follow-up summary covers all eligible supported completed missions.</small></Panel>
     <small>Showing up to the 500 most recent matching impact records; CSV export uses this same filtered dataset.</small>
     {followUp && <Panel><h2>30-day repeat-report follow-up</h2><p>{followUp.eligibleMissions} completed mission(s) have a completion timestamp and a full 30-day follow-up window. {followUp.missionsWithNoRecordedRepeatReports} had no repeat report recorded; {followUp.repeatReports} repeat report(s) were recorded at their locations in those windows.</p><p>Completion timestamps unavailable for {followUp.evidenceUnavailable} completed mission(s). No cleanliness claim is inferred from mission completion.</p><small>{followUp.definition}</small></Panel>}

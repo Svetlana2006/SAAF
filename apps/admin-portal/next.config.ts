@@ -23,6 +23,7 @@ const SECURITY_HEADERS = [
 ];
 
 const nextConfig: NextConfig = {
+  ...(process.env.VERCEL ? { basePath: "/admin" } : {}),
   agentRules: false,
   poweredByHeader: false,
   productionBrowserSourceMaps: false,
@@ -37,4 +38,3 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
-

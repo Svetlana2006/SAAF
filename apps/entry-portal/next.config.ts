@@ -21,6 +21,11 @@ const SECURITY_HEADERS = [
 ];
 
 const nextConfig: NextConfig = {
+  env: {
+    NEXT_PUBLIC_APP_ORIGIN: process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL ?? process.env.VERCEL_URL}`
+      : "",
+  },
   agentRules: false,
   poweredByHeader: false,
   productionBrowserSourceMaps: false,
