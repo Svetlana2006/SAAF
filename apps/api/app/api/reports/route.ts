@@ -31,7 +31,7 @@ import { isValidReportPhotoCount, reportImageCreateData } from "@saaf/platform/w
 const maxFileBytes = 8 * 1024 * 1024;
 
 export async function POST(req: NextRequest) {
-  const limited = rateLimit(req, "report-submit", 5, 60 * 60 * 1000);
+  const limited = await rateLimit(req, "report-submit", 5, 60 * 60 * 1000);
   if (limited) return limited;
   return withErrorHandling(async () => {
     // ── Parse multipart form data ─────────────────────────────────────────

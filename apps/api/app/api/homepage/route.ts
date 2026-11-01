@@ -1,7 +1,12 @@
+import { NextRequest } from "next/server";
 import { prisma } from "@saaf/platform/prisma";
 import { ok, withErrorHandling } from "@saaf/platform/api-helpers";
+import { rateLimit } from "@saaf/platform/rate-limit";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const limited = await rateLimit(request, "homepage", 30, 60 * 1000);
+  if (limited) return limited;
+
   return withErrorHandling(async () => {
     const [totalReports, completedReports, openReports, assignedReports, activeMissions, funding, confirmations, cleanConfirmations, severityGroups, categoryGroups, latestReports] = await Promise.all([
       prisma.report.count(),

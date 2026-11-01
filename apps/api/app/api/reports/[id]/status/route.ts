@@ -13,7 +13,7 @@ import { canTransitionReportStatus } from "@saaf/platform/admin-policy";
 
 const PatchSchema = z.object({
   status: z.enum(["open", "assigned", "completed"], {
-    errorMap: () => ({ message: "status must be one of: open, assigned, completed" }),
+    message: "status must be one of: open, assigned, completed",
   }),
 });
 

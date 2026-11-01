@@ -12,7 +12,7 @@ const schema = z.object({
 });
 
 export async function POST(request: NextRequest) {
-  const limited = rateLimit(request, "csr-application", 5, 60 * 60 * 1000);
+  const limited = await rateLimit(request, "csr-application", 5, 60 * 60 * 1000);
   if (limited) return limited;
   let input: unknown;
   try { input = await request.json(); } catch { return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400 }); }

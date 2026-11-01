@@ -28,33 +28,60 @@ async function ask(label) {
   return (await prompt.question(label)).trim();
 }
 
-function askSecret(label) {
+function askPasswordPair() {
   return new Promise((resolve, reject) => {
     if (!stdin.isTTY || typeof stdin.setRawMode !== "function") {
       reject(new Error("Run this command in an interactive terminal to enter the password safely."));
       return;
     }
-    stdout.write(label);
     stdin.setRawMode(true);
-    stdin.resume();
     stdin.setEncoding("utf8");
     let value = "";
-    const onData = key => {
-      if (key === "\u0003") {
-        cleanup();
-        reject(new Error("Cancelled."));
-      } else if (key === "\r" || key === "\n") {
-        cleanup();
-        stdout.write("\n");
-        resolve(value);
-      } else if (key === "\u007f" || key === "\b") {
-        if (value.length) {
-          value = value.slice(0, -1);
-          stdout.write("\b \b");
+    let password;
+    let ignoreLineFeed = false;
+    stdout.write("Password (minimum 12 characters): ");
+    const onData = chunk => {
+      for (const key of chunk) {
+        if (ignoreLineFeed) {
+          ignoreLineFeed = false;
+          if (key === "\n") continue;
         }
-      } else if (key >= " ") {
-        value += key;
-        stdout.write("*");
+        if (key === "\u0003") {
+          cleanup();
+          reject(new Error("Cancelled."));
+          return;
+        } else if (key === "\r" || key === "\n") {
+          stdout.write("\n");
+          if (key === "\r") ignoreLineFeed = true;
+          if (password === undefined) {
+            if (value.length < 12) {
+              cleanup();
+              reject(new Error("Use a password with at least 12 characters."));
+              return;
+            }
+            password = value;
+            value = "";
+            stdout.write("Confirm password: ");
+          } else {
+            cleanup();
+            if (password !== value) {
+              reject(new Error("Passwords do not match."));
+              return;
+            }
+            resolve(password);
+            return;
+          }
+        } else if (key === "\u007f" || key === "\b") {
+          const characters = Array.from(value);
+          if (characters.length) {
+            characters.pop();
+            value = characters.join("");
+            stdout.write("\b \b");
+          }
+        } else if (key >= " ") {
+          value += key;
+          stdout.write("*");
+        }
       }
     };
     function cleanup() {
@@ -63,6 +90,7 @@ function askSecret(label) {
       stdin.pause();
     }
     stdin.on("data", onData);
+    stdin.resume();
   });
 }
 
@@ -119,10 +147,7 @@ async function main() {
   }
 
   prompt.close();
-  const password = await askSecret("Password (minimum 12 characters): ");
-  if (password.length < 12) throw new Error("Use a password with at least 12 characters.");
-  const confirmation = await askSecret("Confirm password: ");
-  if (password !== confirmation) throw new Error("Passwords do not match.");
+  const password = await askPasswordPair();
   const existingUser = await findUser(email);
   if (role === "ngo" && existingUser) {
     const linkedMembership = await prisma.ngoMembership.findFirst({ where: { supabaseUserId: existingUser.id } });

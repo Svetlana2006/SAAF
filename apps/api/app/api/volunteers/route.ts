@@ -15,7 +15,9 @@ import { VolunteerSignupSchema } from "../../../lib/public-input";
 import { hasMissionCapacity } from "@saaf/platform/workflow-policy";
 
 // ── GET /api/volunteers ──────────────────────────────────────────────────────
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const limited = await rateLimit(req, "volunteers-list", 30, 60 * 1000);
+  if (limited) return limited;
   return withErrorHandling(async () => {
     const missions = await prisma.mission.findMany({
       where: { isActive: true },
@@ -69,7 +71,7 @@ export async function GET() {
 
 // ── POST /api/volunteers ─────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
-  const limited = rateLimit(req, "volunteer-signup", 5, 60 * 60 * 1000);
+  const limited = await rateLimit(req, "volunteer-signup", 5, 60 * 60 * 1000);
   if (limited) return limited;
   return withErrorHandling(async () => {
     const body = VolunteerSignupSchema.parse(await req.json());

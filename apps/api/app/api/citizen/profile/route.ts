@@ -3,7 +3,7 @@ import { rateLimit } from "@saaf/platform/rate-limit";
 import { CitizenEmailConflictError, CitizenEmailConfirmationRequiredError, resolveCitizenSession } from "@saaf/platform/citizen-auth";
 
 export async function POST(request: NextRequest) {
-  const limited = rateLimit(request, "citizen-profile-sync", 20, 60 * 60 * 1000);
+  const limited = await rateLimit(request, "citizen-profile-sync", 20, 60 * 60 * 1000);
   if (limited) return limited;
   try {
     const { citizen, response } = await resolveCitizenSession(request);

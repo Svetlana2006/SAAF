@@ -9,5 +9,5 @@ const nav: InstitutionNav[] = [
   { href: "/complaints", label: "Monitor Complaints", icon: "⚠" },
 ];
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  return <html lang="en"><body><InstitutionShell portal="admin" brand="SAAF" descriptor="SPOT · ASSESS · ACT" status="Municipal administration workspace" user="Authorized administrator" nav={nav} credential={{ title: "Administrator access", lines: ["Access assigned by the SAAF administrator.", "Operational records load from the project database."] }}>{children}</InstitutionShell></body></html>;
+  return <html lang="en" suppressHydrationWarning><body><InstitutionShell portal="admin" brand="SAAF" descriptor="SPOT · ASSESS · ACT" status="Municipal administration workspace" user="Authorized administrator" nav={nav} credential={{ title: "Administrator access", lines: ["Access assigned by the SAAF administrator.", "Operational records load from the project database."] }}>{children}</InstitutionShell></body></html>;
 }

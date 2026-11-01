@@ -3,13 +3,25 @@ import { useRef, useEffect, useState } from "react";
 import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
-(maplibregl as any).config.WORKER_URL = "/maplibre-worker.mjs";
+const maplibreWithWorker = maplibregl as unknown as { config: { WORKER_URL: string } };
+if (maplibreWithWorker.config) {
+  maplibreWithWorker.config.WORKER_URL = "/maplibre-worker.mjs";
+}
 
 interface ReportPoint {
   id: string;
   lat: number;
   lng: number;
   weight: number;
+}
+
+interface ApiReport {
+  reportId: string;
+  location?: {
+    latitude?: number | string;
+    longitude?: number | string;
+  };
+  severity?: string;
 }
 
 interface HeatmapProps {
@@ -21,62 +33,14 @@ export default function HotspotMap({ apiKey }: HeatmapProps) {
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [totalPoints, setTotalPoints] = useState(0);
 
-  // Fetch real data from database
-  useEffect(() => {
-    if (!containerRef.current || mapRef.current) return;
-
-    const map = new maplibregl.Map({
-      container: containerRef.current,
-      style: `https://api.maptiler.com/maps/dataviz-dark/style.json?key=${apiKey}`,
-      center: [77.231, 28.628], // Central Delhi
-      zoom: 10.5,
-    });
-
-    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
-
-    map.on("load", () => {
-      // Fetch Real Database Data Only
-      fetch("/api/reports?limit=500")
-        .then((r) => r.json())
-        .then((json) => {
-          let dbPoints: ReportPoint[] = [];
-          const reportsArray = json.data?.reports;
-          if (reportsArray && Array.isArray(reportsArray)) {
-            dbPoints = reportsArray
-              .filter((r: any) => r.location?.latitude && r.location?.longitude)
-              .map((r: any) => ({
-                id: r.reportId,
-                lat: parseFloat(r.location.latitude),
-                lng: parseFloat(r.location.longitude),
-                weight: r.severity === "Critical / Hazardous" ? 1.0 : 0.6,
-              }));
-          }
-          renderHeatmap(map, dbPoints);
-        })
-        .catch(() => {
-          // If API fails, just render empty map
-          renderHeatmap(map, []);
-        });
-    });
-
-    mapRef.current = map;
-
-    return () => {
-      map.remove();
-      mapRef.current = null;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const renderHeatmap = (map: maplibregl.Map, points: ReportPoint[]) => {
     setTotalPoints(points.length);
-    
-    // Convert to GeoJSON FeatureCollection
-    const geojson: any = {
-      type: "FeatureCollection",
+
+    const geojson = {
+      type: "FeatureCollection" as const,
       features: points.map((p) => ({
-        type: "Feature",
-        geometry: { type: "Point", coordinates: [p.lng, p.lat] },
+        type: "Feature" as const,
+        geometry: { type: "Point" as const, coordinates: [p.lng, p.lat] },
         properties: { weight: p.weight },
       })),
     };
@@ -92,26 +56,67 @@ export default function HotspotMap({ apiKey }: HeatmapProps) {
       source: "reports-source",
       maxzoom: 18,
       paint: {
-        // Weight based on severity
         "heatmap-weight": ["interpolate", ["linear"], ["get", "weight"], 0, 0, 1, 1],
-        // Global intensity by zoom
         "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 10, 1, 15, 3],
-        // Color gradient from transparent green -> yellow -> orange -> red
         "heatmap-color": [
           "interpolate", ["linear"], ["heatmap-density"],
-          0, "rgba(46, 125, 50, 0)", // #2E7D32 with 0 opacity
-          0.2, "rgb(46, 125, 50)",    // Green
-          0.5, "rgb(253, 216, 53)",   // Yellow (#FDD835)
-          0.8, "rgb(251, 140, 0)",    // Orange (#FB8C00)
-          1.0, "rgb(211, 47, 47)"     // Red (#D32F2F)
+          0, "rgba(46, 125, 50, 0)",
+          0.2, "rgb(46, 125, 50)",
+          0.5, "rgb(253, 216, 53)",
+          0.8, "rgb(251, 140, 0)",
+          1.0, "rgb(211, 47, 47)",
         ],
-        // Radius scales with zoom for a natural heat field
         "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 10, 20, 15, 60],
-        // Opacity transition
         "heatmap-opacity": ["interpolate", ["linear"], ["zoom"], 7, 1, 18, 0.7],
       },
     });
   };
+
+  // Fetch real data from database
+  useEffect(() => {
+    if (!containerRef.current || mapRef.current) return;
+
+    const map = new maplibregl.Map({
+      container: containerRef.current,
+      style: `https://api.maptiler.com/maps/dataviz-dark/style.json?key=${apiKey}`,
+      center: [77.231, 28.628], // Central Delhi
+      zoom: 10.5,
+    });
+
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+
+    map.on("load", () => {
+      fetch("/api/reports?limit=500")
+        .then((r) => r.json())
+        .then((json: { data?: { reports?: ApiReport[] } }) => {
+          let dbPoints: ReportPoint[] = [];
+          const reportsArray = json.data?.reports;
+          if (reportsArray && Array.isArray(reportsArray)) {
+            dbPoints = reportsArray
+              .filter((r): r is ApiReport & { location: { latitude: string | number; longitude: string | number } } =>
+                Boolean(r.location?.latitude && r.location?.longitude)
+              )
+              .map((r) => ({
+                id: r.reportId,
+                lat: typeof r.location.latitude === "string" ? parseFloat(r.location.latitude) : r.location.latitude,
+                lng: typeof r.location.longitude === "string" ? parseFloat(r.location.longitude) : r.location.longitude,
+                weight: r.severity === "Critical / Hazardous" ? 1.0 : 0.6,
+              }));
+          }
+          renderHeatmap(map, dbPoints);
+        })
+        .catch(() => {
+          renderHeatmap(map, []);
+        });
+    });
+
+    mapRef.current = map;
+
+    return () => {
+      map.remove();
+      mapRef.current = null;
+    };
+  }, [apiKey]);
 
   return (
     <div style={{ position: "relative", borderRadius: "12px", overflow: "hidden", border: "1px solid #1e293b", background: "#0f172a" }}>
