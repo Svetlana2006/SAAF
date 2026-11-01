@@ -10,6 +10,21 @@ import styles from "./CitizenAuthPage.module.css";
 type Mode = "signin" | "signup";
 
 export default function CitizenAuthPage({ authConfigured }: { authConfigured: boolean }) {
+  if (!authConfigured) {
+    return <main className={styles.page}>
+      <section className={styles.card}>
+        <Link href="/" className={styles.brand}>SAAF <span>Citizen Hub</span></Link>
+        <p className={styles.eyebrow}>COMMUNITY ACCOUNT</p>
+        <h1>Sign-in unavailable</h1>
+        <p role="alert" className={styles.error}>Citizen sign-in is not configured. Set NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY in the Citizen portal deployment and CLERK_SECRET_KEY in the Citizen portal and API deployments.</p>
+        <p className={styles.guest}>You can still <Link href="/">continue as a guest</Link> and submit anonymous reports.</p>
+      </section>
+    </main>;
+  }
+  return <ConfiguredCitizenAuthPage />;
+}
+
+function ConfiguredCitizenAuthPage() {
   const router = useRouter();
   const { isLoaded: signInLoaded, signIn, setActive: setActiveSignIn } = useSignIn();
   const { isLoaded: signUpLoaded, signUp, setActive: setActiveSignUp } = useSignUp();
@@ -151,8 +166,6 @@ export default function CitizenAuthPage({ authConfigured }: { authConfigured: bo
       <p className={styles.eyebrow}>COMMUNITY ACCOUNT</p>
       <h1>{signedInEmail ? "Your Citizen account" : awaitingOtp ? "Verify your email" : mode === "signin" ? "Welcome back" : "Create your account"}</h1>
       <p className={styles.intro}>{awaitingOtp ? "Enter the verification code from your email to activate your Citizen account." : "Sign in to manage your Citizen profile and choose whether each report shares your name."}</p>
-      {!authConfigured && <p role="alert" className={styles.error}>Citizen sign-in is not configured. Set NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY and CLERK_SECRET_KEY in apps/citizen-portal/.env, and CLERK_SECRET_KEY in apps/api/.env.</p>}
-
       {signedInEmail ? <div className={styles.account}>
         <b>{signedInEmail}</b>
         <p>{profileSyncState === "saved" ? "Your Citizen profile is saved in the SAAF database." : profileSyncState === "checking" ? "Saving your Citizen profile to the SAAF database…" : "Your profile has not been saved to the SAAF database."}</p>
@@ -174,7 +187,7 @@ export default function CitizenAuthPage({ authConfigured }: { authConfigured: bo
           {awaitingOtp ? <label>Verification code<input required type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={otp} onChange={event => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))} /></label> : <label>Password<input required type="password" autoComplete={mode === "signup" ? "new-password" : "current-password"} minLength={8} value={password} onChange={event => setPassword(event.target.value)} />{mode === "signup" && <small>Use at least 8 characters. Clerk requires 8 or more; six-character passwords aren&apos;t accepted.</small>}</label>}
           {error && <p role="alert" className={styles.error}>{error}</p>}
           {notice && <p role="status" className={styles.notice}>{notice}</p>}
-          <button className={styles.submit} disabled={busy || !authConfigured || !isReady}>{busy ? "Please wait…" : awaitingOtp ? "Verify email and create account" : mode === "signin" ? "Sign in" : "Send verification code"}</button>
+          <button className={styles.submit} disabled={busy || !isReady}>{busy ? "Please wait…" : awaitingOtp ? "Verify email and create account" : mode === "signin" ? "Sign in" : "Send verification code"}</button>
         </form>
         {awaitingOtp && <div className={styles.otpActions}><button type="button" onClick={resendOtp} disabled={busy}>Resend code</button><button type="button" onClick={changeEmail} disabled={busy}>Change email</button></div>}
         <p className={styles.guest}>You can still <Link href="/">continue as a guest</Link> and submit anonymous reports.</p>
