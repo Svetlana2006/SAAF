@@ -3,7 +3,7 @@ services:
     name: saaf-aprsv-api
     runtime: node
     plan: free
-    buildCommand: npm ci && npm run build --workspace=@saaf/api
+    buildCommand: npm ci --include=dev && npm run build --workspace=@saaf/api
     startCommand: npm run start --workspace=@saaf/api
     envVars:
       - key: NODE_ENV
