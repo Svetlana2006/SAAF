@@ -33,10 +33,25 @@ type SubmitState =
   | { type: "error"; message: string };
 
 export default function ReportPage() {
+  if (!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) {
+    return <ReportForm getToken={async () => null} userLoaded account={null} />;
+  }
+  return <AuthenticatedReportPage />;
+}
+
+function AuthenticatedReportPage() {
   const { getToken } = useAuth();
   const { isLoaded: userLoaded, user } = useUser();
   const primaryEmail = user?.primaryEmailAddress?.emailAddress;
   const account = primaryEmail ? { email: primaryEmail, name: [user.firstName, user.lastName].filter(Boolean).join(" ") || primaryEmail } : null;
+  return <ReportForm getToken={getToken} userLoaded={userLoaded} account={account} />;
+}
+
+function ReportForm({ getToken, userLoaded, account }: {
+  getToken: () => Promise<string | null>;
+  userLoaded: boolean;
+  account: { email: string; name: string } | null;
+}) {
   const [isAnonymous, setIsAnonymous] = useState(true);
   const [category, setCategory] = useState(categories[0]);
   const [severity, setSeverity] = useState("Urgent / Obstruction");
@@ -50,7 +65,7 @@ export default function ReportPage() {
   const [locationConfirmed, setLocationConfirmed] = useState(false);
 
   useEffect(() => {
-    if (!userLoaded || !primaryEmail) return;
+    if (!userLoaded || !account) return;
     void getToken().then((token) => {
       if (!token) return undefined;
       return fetch("/api/citizen/profile", {
@@ -58,7 +73,7 @@ export default function ReportPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
     }).catch(() => undefined);
-  }, [getToken, primaryEmail, userLoaded]);
+  }, [account, getToken, userLoaded]);
 
   const uploadedCount = photos.filter(Boolean).length;
 
